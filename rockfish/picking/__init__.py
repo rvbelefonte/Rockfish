@@ -1,3 +1,0 @@
-"""
-Picking support for Rockfish.
-"""

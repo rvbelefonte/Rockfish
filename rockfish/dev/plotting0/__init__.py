@@ -1,3 +1,0 @@
-"""
-Data plotting support.
-"""

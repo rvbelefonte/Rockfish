@@ -1,3 +1,0 @@
-"""
-Stand-alone Rockfish applications.
-"""
