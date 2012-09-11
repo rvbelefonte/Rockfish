@@ -162,3 +162,5 @@ class SEGYHeaderDatabase(sqlite3.Connection):
             return header.__getattribute__(attribute)
         except AttributeError:
             return header.__getattr__(attribute)
+        except ValueError:
+            return None
