@@ -1,0 +1,32 @@
+As read:
+1 Trace(s) in Stream:
+Seq. No. in line:    1 | 2009-06-22T14:47:37.000000Z - 2009-06-22T14:47:41.000000Z | 500.0 Hz, 2001 samples
+source_coordinate_x : 0
+source_coordinate_y : 0
+coordinate_units : 1
+scalar_to_be_applied_to_all_coordinates : 0
+
+New copy with changes:
+1 Trace(s) in Stream:
+Seq. No. in line:    1 | 2009-06-22T14:47:37.000000Z - 2009-06-22T14:47:41.000000Z | 500.0 Hz, 2001 samples
+source_coordinate_x : 1234567.89
+source_coordinate_y : -1234567.89
+coordinate_units : 1
+scalar_to_be_applied_to_all_coordinates : 0
+
+Traceback (most recent call last):
+  File "test_readSEGY_negative_coords.py", line 38, in <module>
+    st2.write(ofile, format="SEGY", data_encoding=1, byteorder=sys.byteorder)
+  File "/Library/Frameworks/Python.framework/Versions/7.3/lib/python2.7/site-packages/obspy.core-0.7.1-py2.7.egg/obspy/core/stream.py", line 1255, in write
+    writeFormat(self, filename, **kwargs)
+  File "/Library/Frameworks/Python.framework/Versions/7.3/lib/python2.7/site-packages/obspy.segy-0.5.2.dev_r3917-py2.7-macosx-10.5-i386.egg/obspy/segy/core.py", line 424, in writeSEGY
+    segy_file.write(filename, data_encoding=data_encoding, endian=byteorder)
+  File "/Library/Frameworks/Python.framework/Versions/7.3/lib/python2.7/site-packages/obspy.segy-0.5.2.dev_r3917-py2.7-macosx-10.5-i386.egg/obspy/segy/segy.py", line 207, in write
+    self._write(file, data_encoding=data_encoding, endian=endian)
+  File "/Library/Frameworks/Python.framework/Versions/7.3/lib/python2.7/site-packages/obspy.segy-0.5.2.dev_r3917-py2.7-macosx-10.5-i386.egg/obspy/segy/segy.py", line 250, in _write
+    trace.write(file, data_encoding=data_encoding, endian=endian)
+  File "/Library/Frameworks/Python.framework/Versions/7.3/lib/python2.7/site-packages/obspy.segy-0.5.2.dev_r3917-py2.7-macosx-10.5-i386.egg/obspy/segy/segy.py", line 522, in write
+    self.header.write(file, endian=endian)
+  File "/Library/Frameworks/Python.framework/Versions/7.3/lib/python2.7/site-packages/obspy.segy-0.5.2.dev_r3917-py2.7-macosx-10.5-i386.egg/obspy/segy/segy.py", line 634, in write
+    file.write(pack(format, getattr(self, name)))
+struct.error: integer out of range for 'I' format code
