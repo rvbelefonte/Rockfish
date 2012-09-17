@@ -334,11 +334,15 @@ class SEGYTestCase(unittest.TestCase):
                 f.seek(3600)
                 org_header = f.read(240)
             if scale_headers:
-                # create with scaling properties for testing SEGYScaledTraceHeader
-                header = SEGYScaledTraceHeader(header=org_header, endian=endian)
+                # create with scaling properties for testing
+                # SEGYScaledTraceHeader
+                header = SEGYScaledTraceHeader(header=org_header, 
+                                               endian=endian)
             elif scale_headers:
-                # create with scaling properties for testing SEGYComputedTraceHeader
-                header = SEGYComputedTraceHeader(header=org_header, endian=endian)
+                # create with scaling properties for testing
+                # SEGYComputedTraceHeader
+                header = SEGYComputedTraceHeader(header=org_header,
+                                                 endian=endian)
             else:
                 header = SEGYTraceHeader(header=org_header, endian=endian)
             # The header writes to a file like object.
@@ -360,8 +364,8 @@ class SEGYTestCase(unittest.TestCase):
 
     def test_readAndWriteComputedTraceHeader(self):
         """
-        The computed trace header should behave just like the normal header when
-        reading and writing.
+        The computed trace header should behave just like the normal header
+        when reading and writing.
         """
         self.test_readAndWriteTraceHeader(computed_headers=True)
 
@@ -402,13 +406,17 @@ class SEGYTestCase(unittest.TestCase):
                 # should be able to modify values by setting the scaled value
                 new_value = 999
                 header.__setattr__(property_name, new_value)
-                self.assertEqual(new_value, header.__getattribute__(property_name))
-                self.assertEqual(new_value, header.__getattribute__(unscaled_name))
+                self.assertEqual(new_value, 
+                                 header.__getattribute__(property_name))
+                self.assertEqual(new_value, 
+                                 header.__getattribute__(unscaled_name))
                 # should be able to modify values by setting the unscaled value
                 new_value = 888
                 header.__setattr__(unscaled_name, new_value)
-                self.assertEqual(new_value, header.__getattribute__(unscaled_name))
-                self.assertEqual(new_value, header.__getattribute__(property_name))
+                self.assertEqual(new_value,
+                                 header.__getattribute__(unscaled_name))
+                self.assertEqual(new_value, 
+                                 header.__getattribute__(property_name))
             # check that unit conversions are correct for coordinates
             for property_name in coordinate_attr:
                 logging.debug('testing %s' %property_name)
@@ -423,7 +431,7 @@ class SEGYTestCase(unittest.TestCase):
                 header.__setattr__(property_name, new_value)
                 # should give <signed_integer_value>/3.6e3/100
                 self.assertEqual(header.__getattribute__(property_name),
-                                 header.__getattribute__(unscaled_name)/3.6e3/100)
+                    header.__getattribute__(unscaled_name)/3.6e3/100)
                 # check the scaling for cartesian coordinates
                 # set scalar for multiplying 10
                 header.scalar_to_be_applied_to_all_coordinates = 10
@@ -447,13 +455,17 @@ class SEGYTestCase(unittest.TestCase):
                 # should be able to modify values by setting the scaled value
                 new_value = 999
                 header.__setattr__(property_name, new_value)
-                self.assertEqual(new_value, header.__getattribute__(property_name))
-                self.assertEqual(new_value, header.__getattribute__(unscaled_name))
+                self.assertEqual(new_value, 
+                                 header.__getattribute__(property_name))
+                self.assertEqual(new_value,
+                                 header.__getattribute__(unscaled_name))
                 # should be able to modify values by setting the unscaled value
                 new_value = 888
                 header.__setattr__(unscaled_name, new_value)
-                self.assertEqual(new_value, header.__getattribute__(unscaled_name))
-                self.assertEqual(new_value, header.__getattribute__(property_name))
+                self.assertEqual(new_value, 
+                                 header.__getattribute__(unscaled_name))
+                self.assertEqual(new_value,
+                                 header.__getattribute__(property_name))
 
     def test_SEGYComputedTraceHeader(self):
         """
@@ -525,7 +537,8 @@ class SEGYTestCase(unittest.TestCase):
 
     def test_readAndWriteSEGY_unpack_data_False(self):
         """
-        Reading with unpack_data=False and writing again should also not change a file.
+        Reading with unpack_data=False and writing again should also not 
+        change a file.
         """
         # data loaded with headonly=False and unpack_data=False should provide
         # access to data as if loaded with the default option values

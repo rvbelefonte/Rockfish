@@ -39,7 +39,8 @@ class SEGYTraceHeaderDatetimeError(SEGYError):
     """
     pass
 
-class SEGYFile(obspySEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts, SEGYSorting):
+class SEGYFile(obspySEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts, 
+               SEGYSorting):
     """
     Class that handles reading, writing, plotting, and processing of SEG-Y data.
 

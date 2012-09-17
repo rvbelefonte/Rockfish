@@ -28,6 +28,7 @@ import os
 import warnings
 import logging
 
+#logging.basicConfig(level=logging.DEBUG)
 
 class SEGYError(Exception):
     """
@@ -250,15 +251,16 @@ class SEGYFile(object):
         # Write certain fields in the binary header if they are not set. Most
         # fields will be written using the data from the first trace. It is
         # usually better to set the header manually!
-        if self.binary_file_header.number_of_data_traces_per_ensemble <= 0:
-            self.binary_file_header.number_of_data_traces_per_ensemble = \
-                len(self.traces)
-        if self.binary_file_header.sample_interval_in_microseconds <= 0:
-            self.binary_file_header.sample_interval_in_microseconds = \
-                self.traces[0].header.sample_interval_in_ms_for_this_trace
-        if self.binary_file_header.number_of_samples_per_data_trace <= 0:
-            self.binary_file_header.number_of_samples_per_data_trace = \
-                    len(self.traces[0].data)
+        if len(self.traces) > 0:
+            if self.binary_file_header.number_of_data_traces_per_ensemble <= 0:
+                self.binary_file_header.number_of_data_traces_per_ensemble = \
+                    len(self.traces)
+            if self.binary_file_header.sample_interval_in_microseconds <= 0:
+                self.binary_file_header.sample_interval_in_microseconds = \
+                    self.traces[0].header.sample_interval_in_ms_for_this_trace
+            if self.binary_file_header.number_of_samples_per_data_trace <= 0:
+                self.binary_file_header.number_of_samples_per_data_trace = \
+                        len(self.traces[0].data)
 
         # Always set the SEGY Revision number to 1.0 (hex-coded).
         self.binary_file_header.seg_y_format_revision_number = 16
@@ -418,6 +420,8 @@ class SEGYBinaryFileHeader(object):
             endian = self.endian
         for item in BINARY_FILE_HEADER_FORMAT:
             length, name, _ = item
+            logging.debug("Packing binary header %s=%s", name,
+                          getattr(self, name))
             # Unpack according to different lengths.
             if length == 2:
                 format = '%sh' % endian
@@ -499,8 +503,8 @@ class SEGYTrace(object):
             real-valued coordinate and elevation trace-header attributes.
             Defaults to False.
         :param computed_headers: Bool. Determines whether or not to create
-            computed header properties for commonly-calculated values.  Default is
-            False.
+            computed header properties for commonly-calculated values.  
+            Default is False.
         """
         self.endian = endian
         self.data_encoding = data_encoding
@@ -524,7 +528,8 @@ class SEGYTrace(object):
                         computed_headers=computed_headers)
 
     def _readTrace(self, unpack_headers=False, headonly=False,
-                   unpack_data=True, scale_headers=False, computed_headers=False):
+                   unpack_data=True, scale_headers=False, 
+                   computed_headers=False):
         """
         Reads the complete next header starting at the file pointer at
         self.file.
@@ -544,8 +549,8 @@ class SEGYTrace(object):
             real-valued coordinate and elevation trace-header attributes.
             Defaults to False.
         :param computed_headers: Bool. Determines whether or not to create
-            computed header properties for commonly-calculated values.  Default is
-            False.
+            computed header properties for commonly-calculated values.  
+            Default is False.
         """
         trace_header = self.file.read(240)
         # Check if it is smaller than 240 byte.

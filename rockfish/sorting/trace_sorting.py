@@ -10,7 +10,8 @@ class SEGYSorting(object):
 
         :param traces: List of :class:SEGYTrace objects to sort. 
         :param *keys: List of trace header attributes to use as keys in
-    sorting traces. See :const:`obspy.segy.header.TRACE_HEADER_FORMAT` `(source)
+            sorting traces. See 
+            :const:`obspy.segy.header.TRACE_HEADER_FORMAT` `(source)
   <http://obspy.org/browser/obspy/trunk/obspy.segy/obspy/segy/header.py#L47>`_
             for a list of all available trace header attributes. 
 
@@ -28,7 +29,13 @@ class SEGYSorting(object):
         """
         dec = []
         for i, tr in enumerate(self.traces):
-            dec.append([tr.header.__getattribute__(k) for k in keys])
+            _values = []
+            for k in keys:
+                try:
+                    _values.append(tr.header.__getattribute__(k))
+                except AttributeError:
+                    _values.append(tr.header.__getattr__(k))
+            dec.append(_values)
             dec[i].extend([i, tr])
         self.traces = dec
     
