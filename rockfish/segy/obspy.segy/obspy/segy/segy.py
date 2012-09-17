@@ -167,7 +167,7 @@ class SEGYFile(object):
         Creates an empty SEGYFile object.
         """
         self.textual_file_header = ''
-        self.binary_file_header = None
+        self.binary_file_header = SEGYBinaryFileHeader() 
         self.traces = []
 
     def _readTextualHeader(self):
