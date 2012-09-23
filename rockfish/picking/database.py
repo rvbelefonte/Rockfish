@@ -202,7 +202,7 @@ VMTOMO_SHOT_FIELDS = ['trace', # shot number
 VMTOMO_INSTRUMENT_VIEW = 'main.vmtomo_instruments'
 VMTOMO_INSTRUMENT_FIELDS = ['ensemble', # instrument number
                             'receiver_x', # x-pos
-                            'receiver_y', # y-pos
+        , *a                    'receiver_y', # y-pos
                             'receiver_z'] # z-pos
 
 class PickDatabaseConnectionError(Exception):

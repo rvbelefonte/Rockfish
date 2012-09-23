@@ -3,6 +3,7 @@ Support for working with UKOOA P1/90 files.
 """
 import os
 import logging
+import warnings
 from rockfish.database.database import RockfishDatabaseConnection
 
 # Table for the 'Header record specification'
@@ -47,9 +48,9 @@ COORDINATE_FIELDS = [
 RECEIVER_TABLE = 'receiver_groups'
 RECEIVER_FIELDS = [
     #(name, sql_type, default_value, is_not_null, is_primary)
-    ('line_name', 'TEXT', None, True, True),
-    ('source_point_number', 'INTEGER', None, True, True),
-    ('receiver_group_number', 'INTEGER', None, True, True),
+    ('line_name', 'TEXT', None, True, False),
+    ('source_point_number', 'INTEGER', None, True, False),
+    ('receiver_group_number', 'INTEGER', None, True, False),
     ('easting', 'REAL', None, True, False),
     ('northing', 'REAL', None, True, False),
     ('cable_depth', 'REAL', None, True, False),
@@ -110,15 +111,18 @@ class P190(RockfishDatabaseConnection):
             beginning of a p190 file.
         """
         for i, line in enumerate(file):
-            if line[0] == 'H':
-                self._read_header_line(line)
-            elif line[0] in COORDINATE_IDS:
-                line_name, source_point_number = self._read_coordinate_line(line)
-            elif line[0] == 'R':
-                self._read_receiver_line(line, line_name, source_point_number)
-            else:
-                msg = "Skipping unknown record id '{:}' on line {:d} of {:}."\
-                        .format(line[0], i, self.file)
+            try:
+                if line[0] == 'H':
+                    self._read_header_line(line)
+                elif line[0] in COORDINATE_IDS:
+                    line_name, source_point_number = \
+                        self._read_coordinate_line(line)
+                elif line[0] == 'R':
+                    self._read_receiver_line(line, line_name,
+                                             source_point_number)
+            except:
+                msg = "Skipping invalid record on line {:d} of {:}."\
+                        .format(i, file.name)
                 warnings.warn(msg)
         self.commit()
 
