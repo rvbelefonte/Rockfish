@@ -12,8 +12,8 @@ class VM(object):
         Class for working with VM Tomography models.
 
         :param file: Optional. An open file-like object or a string which is
-            assumed to be a filename. Default is to create an empty instance of
-            the VM class.
+            assumed to be a filename. Default is to create an empty instance 
+            of the VM class.
         :param endian: Optional. The endianness of the file. Default is
             to use machine's native byte order. 
         """
@@ -54,23 +54,25 @@ class VM(object):
         self.r2 = unpack(fmt, file.read(4*3))
         fmt = '{:}fff'.format(endian)
         self.dx, self.dy, self.dz = unpack(fmt, file.read(4*3))
-        # TODO read slowness grid, etc
-        # self.sl = [[nx],[ny],[nz]]? or  [[nz],[ny],[nx]] (as in vm_read.m)
-
-
-        # TODO
-        # Rgrid
-        # TODO
         # Slowness grid
-        # TODO
-
-
-
-        print self.r1, self.r2
-        print self.dx, self.dy, self.dz
-        print self.nx, self.ny, self.nz, self.nr
-
-        #raise NotImplementedError('No _read() yet')
-
-
-
+        ngrid = self.nx*self.ny*self.nz
+        fmt = endian + 'f' * ngrid
+        _sl = unpack(fmt, file.read(4*ngrid))
+        self.sl = np.reshape(np.asarray(_sl),
+                             self.nz, self.ny, self.nx)
+        # Interfaces
+        nintf = self.nx*self.ny*self.nr
+        fmt = endian + 'f' * nintf
+        _rf = unpack(fmt, file.read(4*nintf))
+        self.rf = np.reshape(np.asarray(_rf),
+                             self.ny, self.nx, self.nr)
+        _jp = unpack(fmt, file.read(4*nintf))
+        self.jp = np.reshape(np.asarray(_jp),
+                             self.ny, self.nx, self.nr)
+        fmt = endian + 'i' * nintf
+        _ir = unpack(fmt, file.read(4*nintf))
+        self.ir = np.reshape(np.asarray(_ir),
+                             self.ny, self.nx, self.nr)
+        _ij = unpack(fmt, file.read(4*nintf))
+        self.ij = np.reshape(np.asarray(_ij),
+                             self.ny, self.nx, self.nr)
