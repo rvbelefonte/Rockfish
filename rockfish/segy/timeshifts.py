@@ -33,10 +33,9 @@ class SEGYTimeshifts(object):
             F = np.fft.fft(tr.data) * np.exp(-2j*np.pi*f*dts[i]/dt_sec)
             # XXX casting as 32-bit here so we can write!
             # XXX need a more general way to handle this!
-            tr.data = np.int32(np.real(np.fft.ifft(F)))
+            tr.data = np.float32(np.real(np.fft.ifft(F)))
             if record_delay:
                 tr.header.delay_recording_time_in_ms += -dts[i]*1000.
-
 
     def apply_velocity_reduction(self, reduction_velocity, 
             current_reduction_velocity=None, data_length=None, traces=None,

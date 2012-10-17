@@ -1,3 +1,3 @@
 """
-Master test suite.
+Master test module.
 """

@@ -46,7 +46,7 @@ Field Name         SQL Type  Description
 =================  ========= ===============================================
 event*             text      Name of event.
 ensemble*          integer   Ensemble number (i.e., shot no., CMP no.)
-trace* integer   Trace number in ensemble (i.e., channel no.)
+trace*             integer   Trace number in ensemble (i.e., channel no.)
 time               real      Pick time in seconds. Should be absolute,
                              and any reduction, delay time, etc. should have
                              been removed.

@@ -6,6 +6,7 @@ import copy
 from obspy.segy.segy import SEGYTrace,\
                             SEGYError, SEGYTraceHeaderTooSmallError,\
                             SEGYTraceReadingError, SEGYWritingError
+from obspy.segy import pack
 from obspy.segy.segy import SEGYFile as obspySEGYFile
 
 from obspy.segy.header import ENDIAN, DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS, \
