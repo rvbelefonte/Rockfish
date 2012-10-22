@@ -2,6 +2,7 @@
 Time shift for SEG-Y data.
 """
 import numpy as np
+from rockfish.segy.utils import calc_reduction_time
 
 class SEGYTimeshifts(object):
     """
@@ -62,12 +63,9 @@ class SEGYTimeshifts(object):
         # Calculate timeshifts for all traces
         dts = []
         for tr in traces:
-            x_km = abs(tr.header.source_receiver_offset_in_m) * 0.001
-            dts.append(0)
-            if reduction_velocity is not None:
-                dts[-1] += -x_km/reduction_velocity
-            if current_reduction_velocity is not None:
-                dts[-1] += x_km/current_reduction_velocity
+            x_km = tr.header.source_receiver_offset_in_m * 0.001
+            dts.append(calc_reduction_time(reduction_velocity, x_km,
+                current_reduction_velocity))
         # Apply timeshifts
         self.timeshift(dts, traces, record_delay=record_delay)
         # Throw out extra data

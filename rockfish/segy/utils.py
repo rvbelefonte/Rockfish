@@ -47,3 +47,15 @@ class SEGYUtils(object):
                 self.traces[i].header.number_of_samples_in_this_trace = \
                     len(data[i])
             self.traces[i].data = data[i]
+
+def calc_reduction_time(reduction_velocity, offset, 
+                        current_reduction_velocity=None):
+    """
+    Calculate timeshift for velocity reduction at a given offset.
+    """
+    dt = 0
+    if reduction_velocity is not None:
+        dt += -abs(offset)/reduction_velocity
+    if current_reduction_velocity is not None:
+        dt += abs(offset)/current_reduction_velocity
+    return dt

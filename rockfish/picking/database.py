@@ -60,6 +60,8 @@ Other non-required fields are:
 ================= =========  ====================== =====================
 Field Name        SQL Type   Description            Default Value
 ================= =========  ====================== =====================
+time_reduced      real       Reduced pick time in   None
+                             seconds.
 error             real       Pick error in seconds. ``0.0``
 timestamp         timestamp  Time pick was entered  ``CURRENT_TIMESTAMP``
                              or updated.
@@ -146,6 +148,7 @@ faz               real       Forward azimuth (from  None
 """
 import logging
 from rockfish.database.database import RockfishDatabaseConnection
+from rockfish.database.utils import format_row_factory
 
 # Default tables and fields
 PICK_TABLE = 'picks'
@@ -155,6 +158,7 @@ PICK_FIELDS = [
           ('ensemble', 'INTEGER', None, True, True),
           ('trace', 'INTEGER', None, True, True),
           ('time', 'REAL', None, True, False),
+          ('time_reduced', 'REAL', None, True, False),
           ('error', 'REAL', 0.0, True, False),
           ('timestamp', 'TIMESTAMP', 'CURRENT_TIMESTAMP', True, False),
           ('method', 'TEXT', 'unknown', False, False),
@@ -291,15 +295,18 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         self._create_view(self.MASTER_VIEW, fields=None)
         self._create_view(self.VMTOMO_PICK_VIEW, fields=VMTOMO_PICK_FIELDS)
-        self._create_view(self.VMTOMO_SHOT_VIEW, fields=VMTOMO_SHOT_FIELDS)
+        self._create_view(self.VMTOMO_SHOT_VIEW, fields=VMTOMO_SHOT_FIELDS,
+                          distinct=True)
         self._create_view(self.VMTOMO_INSTRUMENT_VIEW,
-                          fields=VMTOMO_INSTRUMENT_FIELDS)
+                          fields=VMTOMO_INSTRUMENT_FIELDS, distinct=True)
 
-    def _create_view(self, name, fields=None):
+    def _create_view(self, name, fields=None, distinct=False):
         """ 
         Creates a view of a master natural join.
         """
         sql = 'CREATE VIEW IF NOT EXISTS %s AS SELECT ' % name
+        if distinct is True:
+            sql += ' DISTINCT '
         if fields is not None:
             sql += ', '.join(fields)
         else:
@@ -374,7 +381,45 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             logging.debug('Adding ' + str(values) + " to table '%s'" % table)
             self._insertupdate(table, **values)
 
-    def get_picks(self, **kwargs):
+    def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat', 
+                     shotfile='shots.dat', directory=''):
+        """
+        Write pick data to VM Tomography format input files.
+
+        :param instfile: Optional. Name of file to write instrument data to.
+            Default is ``inst.dat``.
+        :param pickfile: Optional. Name of file to write pick data to.
+            Default is ``picks.dat``.
+        :param shotfile: Optional. Name of file to write shot data to.
+            Default is ``shots.dat``.
+        :param directory: Optional. Name of path to append to filenames. 
+            Default is to write files in the current working directory.
+        """
+        f = open(directory + '/' + pickfile, 'w')
+        f.write(self.vmtomo_picks)
+        f.close()
+        f = open(directory + '/' + instfile, 'w')
+        f.write(self.vmtomo_inst)
+        f.close()
+        f = open(directory + '/' + shotfile, 'w')
+        f.write(self.vmtomo_shots)
+        f.close()
+
+    def get_vmtomo_instrument_position(self, instrument):
+        """
+        Get x,y,z postion of an instrument from the VM Tomography instrument
+        view.
+
+        :param instrument: The number of the instrument to get the position for.
+        :returns: x,y,z
+        """
+        sql = 'SELECT receiver_x, receiver_y, receiver_z FROM ' + VMTOMO_INSTRUMENT_VIEW
+        sql += ' WHERE ensemble={:}'.format(instrument)
+        logging.debug("calling: self.execute('%s').fetchone()" %sql)
+        return self.execute(sql).fetchone()
+
+
+    def _get_picks(self, **kwargs):
         """
         Get rows with matching field values from master table.
 
@@ -396,6 +441,55 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         logging.debug("calling: self.execute('%s')" %sql)
         return [f[0] for f in self.execute(sql).fetchall()]
 
+    def _get_ensembles(self):
+        """
+        Returns a list of unique ensembles in the database.
+        """
+        sql = 'SELECT DISTINCT ensemble FROM %s' %self.TRACE_TABLE
+        logging.debug("calling: self.execute('%s')" %sql)
+        return [f[0] for f in self.execute(sql).fetchall()]
+
+    def _get_vmtomo_picks(self, **kwargs):
+        """
+        Returns a formated string of picks for input to VM Tomography.
+        
+        :param **kwargs: keyword=value arguments used to select picks to output
+        """
+        sql = 'SELECT * FROM {:}'.format(VMTOMO_PICK_VIEW)
+        if len(kwargs) > 0:
+            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
+                                            for k in kwargs])
+        return format_row_factory(self.execute(sql))
+
+    def _get_vmtomo_shots(self, **kwargs):
+        """
+        Returns a formated string of shots for input to VM Tomography.
+        
+        :param **kwargs: keyword=value arguments used to select shots to output
+        """
+        sql = 'SELECT * FROM {:}'.format(VMTOMO_SHOT_VIEW)
+        if len(kwargs) > 0:
+            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
+                                            for k in kwargs])
+        return format_row_factory(self.execute(sql))
+
+    def _get_vmtomo_inst(self, **kwargs):
+        """
+        Returns a formated string of instruments for input to VM Tomography.
+        
+        :param **kwargs: keyword=value arguments used to select instruments to output
+        """
+        sql = 'SELECT * FROM {:}'.format(VMTOMO_INSTRUMENT_VIEW)
+        if len(kwargs) > 0:
+            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
+                                            for k in kwargs])
+        return format_row_factory(self.execute(sql))
+
     events = property(_get_events)
+    ensembles = property(_get_ensembles)
+    picks = property(_get_picks)
+    vmtomo_picks = property(_get_vmtomo_picks)
+    vmtomo_shots = property(_get_vmtomo_shots)
+    vmtomo_inst = property(_get_vmtomo_inst)
 
 

@@ -44,6 +44,7 @@ class VM(object):
             self.nx = None
             self.ny = None
             self.nz = None
+            self.nr = None
             self.r1 = (None, None, None)
             self.r2 = (None, None, None)
             self.dx = None

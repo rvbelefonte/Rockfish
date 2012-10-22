@@ -973,11 +973,23 @@ class SEGYComputedTraceHeader(SEGYScaledTraceHeader):
             dist_m = math.copysign(dist_m, baz)
             if faz < 0: faz += 360
             if baz < 0: baz += 360
-            return dist_m, faz, baz
+        elif self.coordinate_units == 1:
+            dx = self.scaled_group_coordinate_x\
+                    - self.scaled_source_coordinate_x
+            dy = self.scaled_group_coordinate_y\
+                    - self.scaled_source_coordinate_y
+            dist_m = np.sqrt(dx**2 + dy**2)
+            faz = 90 - np.rad2deg(np.arctan2(dy, dx))
+            if faz < 0: faz += 360.
+            baz = faz - 180
+            if baz < 0: baz += 360
         else:
-            # TODO handle cartesian coordinates
-            msg = '_calc_offset does not support cartesian coordinates yet'
-            raise NotImplementedError(msg)
+            msg = '''
+                  coordinate_units must equal 1 or 2,
+                  as per the SEG-Y standard.
+                  '''.strip()
+            raise ValueError(msg)
+        return dist_m, faz, baz
 
     # Getters for properties
     def _get_source_receiver_offset(self):
