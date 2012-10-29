@@ -9,7 +9,7 @@ from rockfish.vmtomo.vm import VM
 RAYTR_PROG = 'slim_rays'
 
 def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True, 
-          grid_size=None, forward_star_size=(6, 6, 12), min_angle=0.5,
+          grid_size=None, forward_star_size=[6, 6, 12], min_angle=0.5,
           min_velocity=1.4, max_node_size=620, top_layer=1, bottom_layer=None,
           **kwargs):
     """
@@ -46,15 +46,15 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
     """
     # Make the input files
     instfile = 'inst.dat'
-    pickfile = 'pick.dat'
-    shotfile = 'shot.dat'
+    pickfile = 'picks.dat'
+    shotfile = 'shots.dat'
     if input_dir is not None:
         if not os.path.isdir(input_dir):
             os.mkdir(input_dir)
     else:
-        input_dir = ''
+        input_dir = '.'
     pickdb.write_vmtomo(instfile=instfile, pickfile=pickfile, 
-                        shotfile=shotfile, directory=input_dir)
+                        shotfile=shotfile, directory=input_dir, **kwargs)
     # set grid size for shortest path algortithm
     vm = VM(vmfile, head_only=True)
     if grid_size is None:
@@ -84,7 +84,9 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         print ' Tracing rays for receiver #{:} ({:} of {:})'\
                 .format(_inst, i+1, ninst)
         print '='*80
-        sh = '{:} << eof\n'.format(RAYTR_PROG)
+        sh = '#!/bin/bash\n'
+        sh += '#\n'
+        sh += '{:} << eof\n'.format(RAYTR_PROG)
         sh += '{:}\n'.format(vmfile)
         sh += '{:}\n'.format(_inst)
         sh += '{:},{:},{:}\n'.format(grid_size[0], grid_size[1], grid_size[2])
@@ -96,13 +98,14 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
                                      forward_star_size[1],
                                      forward_star_size[2])
         sh += '{:}\n'.format(min_angle)
-        sh += '{:}\n'.format(shotfile)
-        sh += '{:}\n'.format(pickfile)
+        sh += '{:}\n'.format(input_dir + '/' + shotfile)
+        sh += '{:}\n'.format(input_dir + '/' + pickfile)
         sh += '{:}\n'.format(rayfile)
         sh += '{:}\n'.format(iheader)
         sh += '0.0\n' #XXX seting instrument static to 0. here! 
                       #TODO take as input
-        sh += 'eof'
+        sh += 'eof\n'
+
         print sh
         start = time.clock()
         subprocess.call(sh, shell=True)

@@ -116,8 +116,8 @@ made on.  This table includes the following required fields:
 ================  ========= ================================================
 Field Name        SQL Type  Description 
 ================  ========= ================================================
-ensemble*          integer   Ensemble number (i.e., shot no., CMP no.)
-trace* integer   Trace number in ensemble (i.e., channel no.)
+ensemble*         integer   Ensemble number (i.e., shot no., CMP no.)
+trace*            integer   Trace number in ensemble (i.e., channel no.)
 source_x          real      Easting (e.g., longitude) of the source.
 source_x          real      Northing (e.g., latitude) of the source.
 source_z          real      Depth of source below sealevel.
@@ -142,6 +142,8 @@ offset            real       Distance from the      None
 faz               real       Forward azimuth (from  None
                              the source to the 
                              receiver).
+line              text       2D line name for pick  None
+site              text       Instrument site name   None
 ================= =========  ====================== =====================
 
 
@@ -184,7 +186,9 @@ TRACE_FIELDS = [
           ('receiver_y', 'REAL', None, True, False),
           ('receiver_z', 'REAL', None, True, False),
           ('offset', 'REAL', None, False, False),
-          ('faz', 'REAL', None, False, False)]
+          ('faz', 'REAL', None, False, False),
+          ('line', 'TEXT', None, False, False),
+          ('site', 'TEXT', None, False, False)]
 
 # Default view table names
 MASTER_VIEW = 'main.all_picks'
@@ -382,7 +386,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             self._insertupdate(table, **values)
 
     def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat', 
-                     shotfile='shots.dat', directory=''):
+                     shotfile='shots.dat', directory='.'):
         """
         Write pick data to VM Tomography format input files.
 
@@ -413,13 +417,13 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         :param instrument: The number of the instrument to get the position for.
         :returns: x,y,z
         """
-        sql = 'SELECT receiver_x, receiver_y, receiver_z FROM ' + VMTOMO_INSTRUMENT_VIEW
+        sql = 'SELECT receiver_x, receiver_y, receiver_z FROM '\
+                + VMTOMO_INSTRUMENT_VIEW
         sql += ' WHERE ensemble={:}'.format(instrument)
         logging.debug("calling: self.execute('%s').fetchone()" %sql)
         return self.execute(sql).fetchone()
 
-
-    def _get_picks(self, **kwargs):
+    def get_picks(self, **kwargs):
         """
         Get rows with matching field values from master table.
 
@@ -449,7 +453,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         logging.debug("calling: self.execute('%s')" %sql)
         return [f[0] for f in self.execute(sql).fetchall()]
 
-    def _get_vmtomo_picks(self, **kwargs):
+    def get_vmtomo_picks(self, **kwargs):
         """
         Returns a formated string of picks for input to VM Tomography.
         
@@ -461,7 +465,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
                                             for k in kwargs])
         return format_row_factory(self.execute(sql))
 
-    def _get_vmtomo_shots(self, **kwargs):
+    def get_vmtomo_shots(self, **kwargs):
         """
         Returns a formated string of shots for input to VM Tomography.
         
@@ -473,11 +477,12 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
                                             for k in kwargs])
         return format_row_factory(self.execute(sql))
 
-    def _get_vmtomo_inst(self, **kwargs):
+    def get_vmtomo_inst(self, **kwargs):
         """
         Returns a formated string of instruments for input to VM Tomography.
         
-        :param **kwargs: keyword=value arguments used to select instruments to output
+        :param **kwargs: keyword=value arguments used to select instruments
+            to output.
         """
         sql = 'SELECT * FROM {:}'.format(VMTOMO_INSTRUMENT_VIEW)
         if len(kwargs) > 0:
@@ -487,9 +492,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
 
     events = property(_get_events)
     ensembles = property(_get_ensembles)
-    picks = property(_get_picks)
-    vmtomo_picks = property(_get_vmtomo_picks)
-    vmtomo_shots = property(_get_vmtomo_shots)
-    vmtomo_inst = property(_get_vmtomo_inst)
-
-
+    picks = property(get_picks)
+    vmtomo_picks = property(get_vmtomo_picks)
+    vmtomo_shots = property(get_vmtomo_shots)
+    vmtomo_inst = property(get_vmtomo_inst)
