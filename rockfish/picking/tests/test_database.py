@@ -29,6 +29,7 @@ for i in range(0, len(events)):
         'ensemble':ensembles[i],
         'trace':traces[i],
         'time':12.3456789,
+        'time_reduced':12.3456789,
         'source_x':-123.456,
         'source_y':-12.345,
         'source_z':0.006,

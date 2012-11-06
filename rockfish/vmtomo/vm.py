@@ -367,6 +367,7 @@ class VM(object):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
+            show = True
         ax.imshow(sl.transpose(), extent=extents)
         print len(bounds[0]), len(bounds[1])
         ax.plot(bounds[0], bounds[1], '-k')
@@ -374,7 +375,7 @@ class VM(object):
         plt.ylabel(labels[1])
         plt.xlim(self.r1[0], self.r2[0])
         # Show (TODO save, draw) plot
-        if ax is None:
+        if show:
             plt.show()
 
     def _slice_for_plot(self, x=None, y=None, z=None):

@@ -6,6 +6,7 @@ from struct import pack, unpack
 
 ENDIAN = '>'
 
+
 def float2bitvec(floatval):
     """
     Convert a Python float to IEEE floating point bits.
@@ -65,7 +66,7 @@ def set_bitvector_size(bv,size=8):
 
 def join_bitvector(bvSeq): 
     """ 
-    Combined a sequence of bit vectors into one large BitVector 
+    Combine a sequence of bit vectors into one large BitVector 
     :param bvSeq: sequence of bitvectors 
     :return: aggregated BitVector 
     :bug: replace with a faster algorithm! 
