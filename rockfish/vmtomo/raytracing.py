@@ -55,6 +55,9 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         input_dir = '.'
     pickdb.write_vmtomo(instfile=instfile, pickfile=pickfile, 
                         shotfile=shotfile, directory=input_dir, **kwargs)
+    # ensure full path for vm programs
+    vmfile = os.path.abspath(vmfile)
+    rayfile = os.path.abspath(rayfile)
     # set grid size for shortest path algortithm
     vm = VM(vmfile, head_only=True)
     if grid_size is None:
@@ -68,7 +71,7 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
     if bottom_layer is None:
         bottom_layer = vm.nr
     # Raytrace each instrument
-    inst = pickdb.ensembles
+    inst = pickdb.get_ensembles(**kwargs)
     ninst = len(inst)
     if os.path.isfile(rayfile):
         os.remove(rayfile)
@@ -92,7 +95,7 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         sh += '{:},{:},{:}\n'.format(grid_size[0], grid_size[1], grid_size[2])
         sh += '{:}\n'.format(1./min_velocity)
         sh += '{:}\n'.format(max_node_size)
-        sh += '{:},{:},{:}\n'.format(recx, recy, recz)
+        sh += '{:<10.5f} {:<10.5f} {:<10.5f}\n'.format(recx, recy, recz)
         sh += '{:},{:}\n'.format(top_layer, bottom_layer)
         sh += '{:},{:},{:}\n'.format(forward_star_size[0], 
                                      forward_star_size[1],

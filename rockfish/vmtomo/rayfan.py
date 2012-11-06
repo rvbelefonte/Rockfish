@@ -154,3 +154,10 @@ class Rayfan(object):
             self.paths.append(np.reshape(
                 unpack(fmt,file.read(4*3*lens[i])),
                 (lens[i],3)))
+        # Endpoint coordinates
+        self.endpoints = []
+        for path in self.paths:
+            if len(path) > 0:
+                self.endpoints.append(path[0])
+            else:
+                self.endpoints.append([None, None, None])

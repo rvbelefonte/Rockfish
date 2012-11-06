@@ -386,7 +386,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             self._insertupdate(table, **values)
 
     def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat', 
-                     shotfile='shots.dat', directory='.'):
+                     shotfile='shots.dat', directory='.', **kwargs):
         """
         Write pick data to VM Tomography format input files.
 
@@ -398,9 +398,11 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             Default is ``shots.dat``.
         :param directory: Optional. Name of path to append to filenames. 
             Default is to write files in the current working directory.
+        :param **kwargs: Optional keyword=value arguments for fields in the
+            picks table. Default is to write all picks.
         """
         f = open(directory + '/' + pickfile, 'w')
-        f.write(self.vmtomo_picks)
+        f.write(self.get_vmtomo_picks(**kwargs))
         f.close()
         f = open(directory + '/' + instfile, 'w')
         f.write(self.vmtomo_inst)
@@ -445,11 +447,17 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         logging.debug("calling: self.execute('%s')" %sql)
         return [f[0] for f in self.execute(sql).fetchall()]
 
-    def _get_ensembles(self):
+    def get_ensembles(self, **kwargs):
         """
         Returns a list of unique ensembles in the database.
+        
+        :param **kwargs: keyword=value arguments used to select instruments
+            to output.
         """
-        sql = 'SELECT DISTINCT ensemble FROM %s' %self.TRACE_TABLE
+        sql = 'SELECT DISTINCT ensemble FROM %s' %self.MASTER_VIEW
+        if len(kwargs) > 0:
+            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
+                                            for k in kwargs])
         logging.debug("calling: self.execute('%s')" %sql)
         return [f[0] for f in self.execute(sql).fetchall()]
 
@@ -491,7 +499,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         return format_row_factory(self.execute(sql))
 
     events = property(_get_events)
-    ensembles = property(_get_ensembles)
+    ensembles = property(get_ensembles)
     picks = property(get_picks)
     vmtomo_picks = property(get_vmtomo_picks)
     vmtomo_shots = property(get_vmtomo_shots)

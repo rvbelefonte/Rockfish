@@ -343,7 +343,7 @@ class VM(object):
                 segy.traces.append(tr)
         return segy
 
-    def plot(self, x=None, y=None, z=None, velocity=True):
+    def plot(self, x=None, y=None, z=None, velocity=True, ax=None):
         """
         Plot a slice from a VM slowness model.
         
@@ -364,8 +364,9 @@ class VM(object):
         if velocity is True:
             sl = 1./sl
         # Plot figure
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
         ax.imshow(sl.transpose(), extent=extents)
         print len(bounds[0]), len(bounds[1])
         ax.plot(bounds[0], bounds[1], '-k')
@@ -373,7 +374,8 @@ class VM(object):
         plt.ylabel(labels[1])
         plt.xlim(self.r1[0], self.r2[0])
         # Show (TODO save, draw) plot
-        plt.show()
+        if ax is None:
+            plt.show()
 
     def _slice_for_plot(self, x=None, y=None, z=None):
         """
@@ -388,10 +390,23 @@ class VM(object):
         :returns extents: Extents of the 2D slice as a tuple.
         :returns labels: Slice axis labels returned as a tuple.
         """
+        # Avoid dividing by zero for 2d models
+        if self.dx == 0:
+            dx = 1
+        else:
+            dx = self.dx
+        if self.dy == 0:
+            dy = 1
+        else:
+            dy = self.dy
+        if self.dz == 0:
+            dz = 1
+        else:
+            dz = self.dz
         # Extract the grid slice
         if (x is not None) and (y is None) and (z is None):
             # Take a slice in the y-z plane
-            ix = int((x - self.r1[0])/self.dx)
+            ix = int((x - self.r1[0])/dx)
             sl = self.sl[ix]
             _x = list(np.linspace(self.r1[1],self.r2[1],self.ny))
             x = []; y = []
@@ -404,7 +419,7 @@ class VM(object):
             labels = ('y-offset (km)', 'Depth (km)')
         elif (x is None) and (y is not None) and (z is None):
             # Take a slice in the x-z plane
-            iy = int((y - self.r1[1])/self.dy)
+            iy = int((y - self.r1[1])/dy)
             sl = np.asarray([d[iy] for d in self.sl])
             _x = list(np.linspace(self.r1[0], self.r2[0], self.nx))
             x = []; y = []
@@ -417,7 +432,7 @@ class VM(object):
             labels = ('x-offset (km)', 'Depth (km)')
         elif (x is None) and (y is None) and (z is not None):
             # Take a slice in the x-y plane
-            iz = int((z - self.r1[2])/self.dz)
+            iz = int((z - self.r1[2])/dz)
             sl = self.sl.transpose()[iz]
             x = [None]
             y = [None]
