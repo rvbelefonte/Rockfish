@@ -81,7 +81,7 @@ class RayfanFile(object):
             rayfan_version = 1
         # Read the individual rayfans
         self.rayfans = []
-        for i in range(0, 1): #nrayfans):
+        for i in range(0, nrayfans):
             self.rayfans.append(Rayfan(file, endian=endian,
                                        rayfan_version=rayfan_version))
         

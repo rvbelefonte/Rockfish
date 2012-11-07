@@ -3,8 +3,9 @@ Wrappers for working with the VM Tomography raytracing program.
 """
 import os
 import subprocess
+import warnings
 import time
-from rockfish.vmtomo.vm import VM
+from rockfish.vmtomo.vm import VMFile
 
 RAYTR_PROG = 'slim_rays'
 
@@ -13,6 +14,12 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
           min_velocity=1.4, max_node_size=620, top_layer=1, bottom_layer=None,
           **kwargs):
     """
+    Wrapper for running the VM Tomography raytracer.
+
+    Uses pick data in a
+        :class:`rockfish.picking.database.PickDatabaseConnection` to build
+        required input files on-the-fly and executes the tracer.
+
     :param vmfile: Filename of the VM Tomography slowness model to
         raytrace.
     :param rayfile: Filename of the output rayfan file.
@@ -59,7 +66,7 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
     vmfile = os.path.abspath(vmfile)
     rayfile = os.path.abspath(rayfile)
     # set grid size for shortest path algortithm
-    vm = VM(vmfile, head_only=True)
+    vm = VMFile(vmfile, head_only=True)
     if grid_size is None:
         grid_size = (vm.nx, vm.ny, vm.nz)
     # set forward star size for 2D cases
@@ -109,11 +116,22 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
                       #TODO take as input
         sh += 'eof\n'
 
-        print sh
         start = time.clock()
+        if os.path.isfile(rayfile):
+            raysize0 = os.path.getsize(rayfile)
+        else:
+            raysize0 = 0
         subprocess.call(sh, shell=True)
         elapsed = (time.clock() - start)
+        if os.path.isfile(rayfile):
+            raysize1 = os.path.getsize(rayfile)
+        else:
+            raysize1 = 0
+        if raysize1 == raysize0:
+            msg = 'Did not appear to trace rays for receiver #{:}'\
+                    .format(_inst)
+            warnings.warn(msg)
         print '*'*80
         print ' Completed raytracing for receiver #{:} in {:} seconds.'\
-                .format(_inst, elapsed)
+            .format(_inst, elapsed)
         print '*'*80

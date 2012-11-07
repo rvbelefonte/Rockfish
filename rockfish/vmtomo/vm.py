@@ -2,8 +2,9 @@
 Routines for working with VM Tomography models.
 """
 import os
+import warnings
 import numpy as np
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, interp2d
 import datetime
 from struct import unpack
 import matplotlib.pyplot as plt
@@ -13,12 +14,11 @@ from rockfish.segy.segy import pack
 
 ENDIAN = pack.BYTEORDER
 
-class VM(object):
+class VMFile(object):
     """
     Class for working with VM Tomography models.
     """
-    def __init__(self, file=None, endian=ENDIAN, unpack_arrays=True,
-                 head_only=False):
+    def __init__(self, file=None, endian=ENDIAN, head_only=False):
         """
         Class for working with VM Tomography models.
 
@@ -27,36 +27,28 @@ class VM(object):
             of the VM class.
         :param endian: Optional. The endianness of the file. Default is
             to use machine's native byte order. 
-        :param unpack_arrays: Optional. Determines whether or not to rearrange
-            1D arrays of grid and interface values into 3D matrixes (stacked
-            arrays). Default is True.
         :param head_only: Optional. Determines whether or not to read the grid
             data. Useful is only interested in the grid dimension values.
             Default is to read the entire file.
         """
         self.ENDIAN = endian
         if file is not None:
-            self.read(file, endian=endian, unpack_arrays=unpack_arrays,
-                      head_only=head_only)
+            self.read(file, endian=endian, head_only=head_only)
         else:
             # create empty instance
             self.file = None
-            self.nx = None
-            self.ny = None
-            self.nz = None
-            self.nr = None
             self.r1 = (None, None, None)
             self.r2 = (None, None, None)
             self.dx = None
             self.dy = None
             self.dz = None
-            self.sl = []
-            self.rf = []
-            self.jp = []
-            self.ir = []
-            self.ij = []
+            self.sl = np.empty_like(0) 
+            self.rf = np.empty_like(0) 
+            self.jp = np.empty_like(0)
+            self.ir = np.empty_like(0)
+            self.ij = np.empty_like(0)
 
-    def read(self, file, endian=ENDIAN, unpack_arrays=True, head_only=False):
+    def read(self, file, endian=ENDIAN, head_only=False):
         """
         Read a VM model from a file on the disk or a file-like object.
 
@@ -64,9 +56,6 @@ class VM(object):
             assumed to be a filename.
         :param endian: Optional. The endianness of the file. Default is
             to use machine's native byte order. 
-        :param unpack_arrays: Optional. Determines whether or not to rearrange
-            1D arrays of grid and interface values into 3D matrixes (stacked
-            arrays). Default is True.
         :param head_only: Optional. Determines whether or not to read the grid
             data. Useful is only interested in the grid dimension values.
             Default is to read the entire file.
@@ -76,12 +65,11 @@ class VM(object):
             file = open(file, 'rb')
         else:
             file.seek(0)
-        self._read(file, endian=endian, unpack_arrays=unpack_arrays,
-                   head_only=head_only)
+        self._read(file, endian=endian, head_only=head_only)
         self.file = file
         self.file.close()
 
-    def _read(self, file, endian=ENDIAN, unpack_arrays=True, head_only=False):
+    def _read(self, file, endian=ENDIAN, head_only=False):
         """
         Read a VM model from a file-like object.
 
@@ -89,34 +77,31 @@ class VM(object):
             beginning of a VM binary file.
         :param endian: Optional. The endianness of the file. Default is
             to use machine's native byte order.
-        :param unpack_arrays: Optional. Determines whether or not to rearrange
-            1D arrays of grid and interface values into 3D matrixes (stacked
-            arrays). Default is True.
         :param head_only: Optional. Determines whether or not to read the grid
-            data. Useful is only interested in the grid dimension values.
+            data. Useful if one is only interested in the grid dimension values.
             Default is to read the entire file.
         """
         # Header information
         fmt = '{:}iiii'.format(endian)
-        self.nx, self.ny, self.nz, self.nr = unpack(fmt, file.read(4*4))
+        nx, ny, nz, nr = unpack(fmt, file.read(4*4))
         fmt = '{:}fff'.format(endian)
         self.r1 = unpack(fmt, file.read(4*3))
         self.r2 = unpack(fmt, file.read(4*3))
         fmt = '{:}fff'.format(endian)
         self.dx, self.dy, self.dz = unpack(fmt, file.read(4*3))
         if head_only is True:
-            self.sl = []
-            self.rf = []
-            self.jp = []
-            self.ir = []
-            self.ij = []
+            self.sl = np.empty((nx, ny, nz)) 
+            self.rf = np.empty((nr, nx, ny))
+            self.jp = np.empty((nr, nx, ny))
+            self.ir = np.empty((nr, nx, ny))
+            self.ij = np.empty((nr, nx, ny))
             return
         # Slowness grid
-        ngrid = self.nx*self.ny*self.nz
+        ngrid = nx*ny*nz
         fmt = endian + 'f' * ngrid
         self.sl = np.asarray(unpack(fmt, file.read(4*ngrid)))
         # Interface depths and slowness jumps
-        nintf = self.nx*self.ny*self.nr
+        nintf = nx*ny*nr
         fmt = endian + 'f' * nintf
         self.rf = unpack(fmt, file.read(4*nintf))
         self.jp = unpack(fmt, file.read(4*nintf))
@@ -125,25 +110,26 @@ class VM(object):
         self.ir = unpack(fmt, file.read(4*nintf))
         self.ij = unpack(fmt, file.read(4*nintf))
         # Rearrage 1D arrays into 3D matrixes
-        if unpack_arrays is True:
-            self._unpack_arrays()
+        self._unpack_arrays(nx, ny, nz, nr)
+        # Assign nodes to layers
+        self._get_layer_designations()
 
-    def _unpack_arrays(self):
+    def _unpack_arrays(self, nx, ny, nz, nr):
         """
         Rearrange the 1D model arrays into 3D matrices (stacked arrays)
         """
-        self.sl = np.reshape(self.sl, (self.nx, self.ny, self.nz))
+        self.sl = np.reshape(self.sl, (nx, ny, nz))
         rf = []
         jp = []
         ir = []
         ij = []
-        for iref in range(0, self.nr):
-            i0 = iref*(self.nx * self.ny)
-            i1 = i0 + (self.nx * self.ny)
-            rf.append(np.reshape(self.rf[i0:i1], (self.nx, self.ny)))
-            jp.append(np.reshape(self.jp[i0:i1], (self.nx, self.ny)))
-            ir.append(np.reshape(self.ir[i0:i1], (self.nx, self.ny)))
-            ij.append(np.reshape(self.ij[i0:i1], (self.nx, self.ny)))
+        for iref in range(0, nr):
+            i0 = iref*(nx * self.ny)
+            i1 = i0 + (nx * self.ny)
+            rf.append(np.reshape(self.rf[i0:i1], (nx, ny)))
+            jp.append(np.reshape(self.jp[i0:i1], (nx, ny)))
+            ir.append(np.reshape(self.ir[i0:i1], (nx, ny)))
+            ij.append(np.reshape(self.ij[i0:i1], (nx, ny)))
         self.rf = np.asarray(rf)
         self.jp = np.asarray(jp)
         self.ir = np.asarray(ir)
@@ -153,11 +139,13 @@ class VM(object):
         """
         Rearrange the 3D model matrices into 1D arrays.
         """
-        self.sl = np.reshape(self.sl, (self.nx*self.ny*self.nz))
-        self.rf = np.reshape(self.rf, (self.nx*self.ny*self.nr))
-        self.jp = np.reshape(self.jp, (self.nx*self.ny*self.nr))
-        self.ir = np.reshape(self.ir, (self.nx*self.ny*self.nr))
-        self.ij = np.reshape(self.ij, (self.nx*self.ny*self.nr))
+        ngrid = self.nx * self.ny * self.nz
+        nrefl = self.nx * self.ny * self.nr
+        self.sl = np.reshape(self.sl, (ngrid))
+        self.rf = np.reshape(self.rf, (nrefl))
+        self.jp = np.reshape(self.jp, (nrefl))
+        self.ir = np.reshape(self.ir, (nrefl))
+        self.ij = np.reshape(self.ij, (nrefl))
 
     def _gridpoint2index(self, ix, iy, iz):
         """
@@ -167,8 +155,23 @@ class VM(object):
         :param ix: x-coordinate index
         :param iy: y-coordinate index
         :param iz: z-coordinate index
+        :returns: index in the 1D packed slowness array
         """
         return ix*self.ny*self.nz + iy*self.nz + iz
+    
+    def _gridpoint2position(self, ix, iy, iz):
+        """
+        Returns the x,y,z coordinates coresponding to a set of model indices.
+        
+        :param ix: x-coordinate index
+        :param iy: y-coordinate index
+        :param iz: z-coordinate index
+        :returns: x, y, z 
+        """
+        x = ix*self.dx + self.r1[0]
+        y = iy*self.dy + self.r1[1]
+        z = iz*self.dz + self.r1[2]
+        return x,y,z
 
     def _interfacepoint2index(self, ix, iy, ir):
         """
@@ -185,10 +188,10 @@ class VM(object):
         """
         Write the VM model to a disk file.
 
-        .. note:: This is a conveince function for acessing various write
+        .. note:: This is a convienence function for acessing various write
             functions. These write functions are named ``'write_<fmt>'``; see
-            the documentation for these functions for parameter descriptions and
-            additional documentation.
+            the documentation for these functions for parameter descriptions
+            and additional documentation.
 
         :param filename: Name of a file to write data to.
         :param fmt: Optional.  Format to write data in. Default is the native
@@ -216,13 +219,13 @@ class VM(object):
             to use machine's native byte order.
         """
         f = open(filename, 'w')
-        self._pack_arrays()
         # Header information
         for v in [self.nx, self.ny, self.nz, self.nr]:
             pack.pack_4byte_Integer(f, np.int32(v), endian)
         for v in self.r1 + self.r2 + (self.dx, self.dy, self.dz):
             pack.pack_4byte_IEEE(f, np.float32(v), endian)
         # Slowness grid
+        self._pack_arrays() # must be called after writing size properties 
         pack.pack_4byte_IEEE(f, np.float32(self.sl), endian)
         # Interface depths and slowness jumps
         for v in [self.rf, self.jp]:
@@ -368,6 +371,8 @@ class VM(object):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             show = True
+        else:
+            show = False
         ax.imshow(sl.transpose(), extent=extents)
         print len(bounds[0]), len(bounds[1])
         ax.plot(bounds[0], bounds[1], '-k')
@@ -377,6 +382,8 @@ class VM(object):
         # Show (TODO save, draw) plot
         if show:
             plt.show()
+        else:
+            plt.draw()
 
     def _slice_for_plot(self, x=None, y=None, z=None):
         """
@@ -512,6 +519,34 @@ class VM(object):
         vm.ij = np.asarray(vm.ij)
         return vm
 
+    def remove_interface(self, index):
+        """
+        Remove an interface from the model.
+        
+        :param index: Index of the interface to remove.
+        """
+        self.rf = np.delete(self.rf, index, 0)
+        self.jp = np.delete(self.rf, index, 0)
+        self.ir = np.delete(self.rf, index, 0)
+        self.ij = np.delete(self.rf, index, 0)
+
+    def _get_layer_designations(self):
+        """
+        Finds the layer designation for each node in the slowness grid.
+        """
+        flag = -999
+        self.layer = np.ones(self.sl.shape)*flag
+
+
+
+        
+        
+        nmissed = (self.layer==flag).sum()
+        if nmissed > 0:
+            msg = '{:} of {:} grid nodes not assigned to a layer'\
+                    .format(nmissed, self.sl.size)
+            warnings.warn(msg)
+
     def _x2i(self, x):
         """
         Find an x index for an x coordinate.
@@ -584,6 +619,62 @@ class VM(object):
         """
         npad = (width - len(msg))/2
         return char*npad + msg + char*npad
+
+    # Properties, setters, and getters
+    def _get_nr(self):
+        """
+        Returns the number of reflectors in the model.
+        """
+        return self.rf.shape[0]
+    nr = property(fget=_get_nr)
+
+    def _get_nx(self):
+        """
+        Returns the number of x-nodes in the model grid.
+        """
+        return self.sl.shape[0]
+    nx = property(fget=_get_nx)
+
+    def _get_ny(self):
+        """
+        Returns the number of y-nodes in the model grid.
+        """
+        return self.sl.shape[1]
+    ny = property(fget=_get_ny)
+
+    def _get_nz(self):
+        """
+        Returns the number of z-nodes in the model grid.
+        """
+        return self.sl.shape[2]
+    nz = property(fget=_get_nz)
+
+    def _get_x(self):
+        """
+        Returns an array of x-axis coordinates.
+        """
+        return np.asarray(range(0, self.nx))*self.dx
+    x = property(fget=_get_x)
+
+    def _get_y(self):
+        """
+        Returns an array of y-axis coordinates.
+        """
+        return np.asarray(range(0, self.ny))*self.dy
+    y = property(fget=_get_y)
+
+    def _get_z(self):
+        """
+        Returns an array of z-axis coordinates.
+        """
+        return np.asarray(range(0, self.nz))*self.dz
+    z = property(fget=_get_z)
+
+
+
+
+
+
 
 
 

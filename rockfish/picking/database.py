@@ -471,7 +471,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         if len(kwargs) > 0:
             sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
                                             for k in kwargs])
-        return format_row_factory(self.execute(sql))
+        return format_row_factory(self.execute(sql), none_value=0.0)
 
     def get_vmtomo_shots(self, **kwargs):
         """
@@ -483,7 +483,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         if len(kwargs) > 0:
             sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
                                             for k in kwargs])
-        return format_row_factory(self.execute(sql))
+        return format_row_factory(self.execute(sql), none_value=0.0)
 
     def get_vmtomo_inst(self, **kwargs):
         """
@@ -496,7 +496,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         if len(kwargs) > 0:
             sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
                                             for k in kwargs])
-        return format_row_factory(self.execute(sql))
+        return format_row_factory(self.execute(sql), none_value=0.0)
 
     events = property(_get_events)
     ensembles = property(get_ensembles)
