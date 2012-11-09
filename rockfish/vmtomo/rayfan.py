@@ -36,8 +36,8 @@ class RayfanFile(object):
 
         :param file: An open file-like object or a string which is
             assumed to be a filename.
-        :param endian: Optional. The endianness of the file. Default is
-            to use machine's native byte order.
+        :param endian: Optional. The endianness of the file. 
+            Default is to use machine's native byte order.
         """
         if file is not None:
             self.read(file, endian=endian)

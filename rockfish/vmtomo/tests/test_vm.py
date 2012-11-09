@@ -4,7 +4,7 @@ Test cases for the vm module.
 import os
 import unittest
 import numpy as np
-from rockfish.vmtomo.vm import VMFile
+from rockfish.vmtomo.vmfile import VMFile
 from rockfish.core.util import get_example_file
 
 class vmTestCase(unittest.TestCase):
