@@ -4,7 +4,7 @@ Test cases for the vm module.
 import os
 import unittest
 import numpy as np
-from rockfish.vmtomo.vmfile import VMFile
+from rockfish.vmtomo.vm import VM, readVM
 from rockfish.core.util import get_example_file
 
 class vmTestCase(unittest.TestCase):
@@ -13,9 +13,9 @@ class vmTestCase(unittest.TestCase):
     """
     def test_init_empty(self):
         """
-        Calling VMFile without any arguments should return an empty instance.
+        Calling VM without any arguments should return an empty instance.
         """
-        vm = VMFile()
+        vm = VM()
         for attr in ['dx','dy','dz','r1','r2','sl','rf','ir','ij']:
             self.assertTrue(hasattr(vm, attr))
 
@@ -53,14 +53,14 @@ class vmTestCase(unittest.TestCase):
         """
         # read data from the disk file
         vmfile = get_example_file('goc_l26.15.00.vm')
-        vm = VMFile(vmfile)
+        vm = readVM(vmfile)
         # check values
         self.compare_to_benchmark(vm)
         # write it to another file
         tmp = 'temp.vm'
         vm.write(tmp)
         # read these data back in
-        vm = VMFile(tmp)
+        vm = readVM(tmp)
         # check values
         self.compare_to_benchmark(vm)
         # clean up

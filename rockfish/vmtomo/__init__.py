@@ -14,3 +14,4 @@ a VM model. (In the Python tools, a value of ``-1`` for ``ir`` or
 ``ij`` is equivalent to a value of ``0`` in the Fortran codes, and
 indicates that a node is to be excluded from the inversion.
 """
+from vm import VM, readVM
