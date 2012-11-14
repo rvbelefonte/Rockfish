@@ -5,7 +5,7 @@ import os
 import subprocess
 import warnings
 import time
-from rockfish.vmtomo.vm import VMFile
+from rockfish.vmtomo.vm import readVM
 
 RAYTR_PROG = 'slim_rays'
 
@@ -66,7 +66,7 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
     vmfile = os.path.abspath(vmfile)
     rayfile = os.path.abspath(rayfile)
     # set grid size for shortest path algortithm
-    vm = VMFile(vmfile, head_only=True)
+    vm = readVM(vmfile, head_only=True)
     if grid_size is None:
         grid_size = (vm.nx, vm.ny, vm.nz)
     # set forward star size for 2D cases

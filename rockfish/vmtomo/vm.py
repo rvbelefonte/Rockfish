@@ -121,27 +121,26 @@ class VM(object):
         nvel = len(vel)
         for ix in self.xrange2i(xmin, xmax):
             for iy in self.yrange2i(ymin, ymax):
-                zi = z0[ix,iy] + (z1[ix,iy] - z0[ix,iy])\
-                        *np.arange(0., nvel)/(nvel - 1)
                 iz0, iz1 = self.z2i((z0[ix,iy], z1[ix,iy]))
-                iz1 += 1
                 z = self.z[iz0:iz1]
                 if len(z) == 0:
                     # in pinchout, nothing to do
                     continue
                 # Pad interpolates for rounding to grid coordinates
-                vi = np.copy(vel)
-                if z[0] < zi[0]:
-                    zi = np.insert(zi, 0, z[0])
-                    vi = np.insert(vi, 0, vel[0])
-                if z[-1] > zi[-1]:
-                    zi = np.append(zi, z[-1])
-                    vi = np.append(vi, vel[-1])
-                if len(zi) == 1:
+                if nvel == 1:
                     # Set constant value
-                    v = np.asarray([vi])
+                    v = np.asarray([vel])
                 else:
                     # Interpolate velocities
+                    zi = z0[ix,iy] + (z1[ix,iy] - z0[ix,iy])\
+                            *np.arange(0., nvel)/(nvel - 1)
+                    vi = np.copy(vel)
+                    if z[0] < zi[0]:
+                        zi = np.insert(zi, 0, z[0])
+                        vi = np.insert(vi, 0, vel[0])
+                    if z[-1] > zi[-1]:
+                        zi = np.append(zi, z[-1])
+                        vi = np.append(vi, vel[-1])
                     zv = interp1d(zi, vi, kind=kind)
                     v = zv(z)
                 self.sl[ix, iy, iz0:iz1] = 1./v
@@ -168,7 +167,6 @@ class VM(object):
         for ix,x in enumerate(self.x):
             for iy,y in enumerate(self.y):
                 iz0, iz1 = self.z2i((z0[ix,iy], z1[ix,iy]))
-                iz1 += 1
                 z = self.z[iz0:iz1] - self.z[iz0]
                 if v0 is None:
                     if iz0 == 0:
@@ -211,12 +209,11 @@ class VM(object):
             the size of the interface arrays.
         """
         # Calculate grid sizes
-        nx = (r2[0] - r1[0])/dx + 1
-        ny = (r2[1] - r1[1])/dy + 1
-        nz = (r2[2] - r1[2])/dz + 1
+        nx = int((r2[0] - r1[0])/dx) + 1
+        ny = int((r2[1] - r1[1])/dy) + 1
+        nz = int((r2[2] - r1[2])/dz) + 1
         # Copy variables
         self.r1 = r1
-        self.r2 = r2 
         self.dx = dx 
         self.dy = dy 
         self.dz = dz
@@ -226,6 +223,8 @@ class VM(object):
         self.jp = np.zeros((nr, nx, ny))
         self.ir = np.zeros((nr, nx, ny))
         self.ij = np.zeros((nr, nx, ny))
+        # Set max dimensions
+        self.r2 = (self.x[-1], self.y[-1], self.z[-1])
 
     def init_empty_model(self):
         """
@@ -345,7 +344,11 @@ class VM(object):
         """
         f = open(filename, 'w')
         # Header information
-        for v in [self.nx, self.ny, self.nz, self.nr]:
+        nx = self.nx
+        ny = self.ny
+        nz = self.nz
+        nr = self.nr
+        for v in [nx, ny, nz, nr]:
             pack.pack_4byte_Integer(f, np.int32(v), endian)
         for v in self.r1 + self.r2 + (self.dx, self.dy, self.dz):
             pack.pack_4byte_IEEE(f, np.float32(v), endian)
@@ -362,6 +365,8 @@ class VM(object):
         for v in [ir, ij]:
             pack.pack_4byte_Integer(f, np.int32(v), endian)
         f.close()
+        # Unpack the arrays for future use
+        self._unpack_arrays(nx, ny, nz, nr)
 
     def write_ascii_grid(self, filename, meters=False, velocity=False):
         """
