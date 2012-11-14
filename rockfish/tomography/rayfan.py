@@ -3,9 +3,11 @@ Support for working with VM Tomography binary rayfan files.
 """
 import os
 from struct import unpack
+from rockfish.segy.segy import pack
 import logging
 import numpy as np
 
+ENDIAN = pack.BYTEORDER
 DEFAULT_RAYFAN_VERSION = 2
 
 class RayfanError(Exception):
@@ -26,11 +28,11 @@ class RayfanNotFoundError(RayfanError):
     """
     pass
 
-class RayfanFile(object):
+class RayfanGroup(object):
     """
     Class for working with VM Tomography rayfan files.
     """
-    def __init__(self, file=None, endian='@'):
+    def __init__(self, endian='@'):
         """
         Class for working with VM Tomography rayfan files.
 
@@ -39,11 +41,8 @@ class RayfanFile(object):
         :param endian: Optional. The endianness of the file. 
             Default is to use machine's native byte order.
         """
-        if file is not None:
-            self.read(file, endian=endian)
-        else:
-            self.file = None
-            self.rayfans = []
+        self.file = None
+        self.rayfans = []
 
     def read(self, file, endian='@'):
         """
@@ -73,17 +72,18 @@ class RayfanFile(object):
         """
         # Read file header
         fmt = '{:}i'.format(endian)
-        nrayfans = unpack(fmt, file.read(4))[0]
-        if nrayfans < 0:
-            rayfan_version = -nrayfans
-            nrayfans = unpack(fmt, file.read(4))[0]
+        n = unpack(fmt, file.read(4))[0]
+        if n < 0:
+            self.FORMAT = -n
+            n = unpack(fmt, file.read(4))[0]
         else:
-            rayfan_version = 1
+            self.FORMAT = 1
         # Read the individual rayfans
         self.rayfans = []
-        for i in range(0, nrayfans):
+        print n
+        for i in range(0, n):
             self.rayfans.append(Rayfan(file, endian=endian,
-                                       rayfan_version=rayfan_version))
+                                       rayfan_version=self.FORMAT))
         
 class Rayfan(object):
     """
@@ -123,7 +123,6 @@ class Rayfan(object):
         pos = file.tell()
         data_left = filesize - pos
         data_needed = 7*nrays + 3*nsize
-        print filesize, pos, nrays, nsize, data_left, data_needed
         if data_needed > data_left or data_needed < 0:
             msg = '''
                   Too little data in the file left to unpack. This is most
@@ -161,3 +160,16 @@ class Rayfan(object):
                 self.endpoints.append(path[0])
             else:
                 self.endpoints.append([None, None, None])
+
+def readRayfanGroup(file, endian=ENDIAN):
+    """
+    Read a VM tomography rayfan file.
+
+    :param file: An open file-like object or a string which is
+        assumed to be a filename.
+    :param endian: Optional. The endianness of the file. Default is
+        to use machine's native byte order. 
+    """
+    rfn = RayfanGroup()
+    rfn.read(file, endian=endian)
+    return rfn

@@ -1,5 +1,18 @@
 """
 Support for working with velocity models.
+
+Reflection Indices
+==================
+
+The underlying raytracing and inversion codes are written in
+Fortran, and thus array indices start at ``1``, not ``0`` as in Python.
+This discrepency becomes an issue when setting the interface flags
+(i.e., ``ir`` and ``ij``). To reconcile this issue, this module
+subtracts ``1`` from the ``ir`` and ``ij`` arrays when reading a VM
+model from the disk and adds ``1`` to these arrays before writing
+a VM model. In the Python tools, a value of ``-1`` for ``ir`` or
+``ij`` is equivalent to a value of ``0`` in the Fortran codes, and
+indicates that a node is to be excluded from the inversion.
 """
 import os
 import warnings
@@ -89,9 +102,9 @@ class VM(object):
         """
         raise NotImplementedError
 
-    def define_stretched_layer_velocities(self, idx, vel, xmin=None,
-                                          xmax=None, ymin=None, ymax=None,
-                                          kind='linear'):
+    def define_stretched_layer_velocities(self, idx, vel=[None, None],
+                                          xmin=None, xmax=None, ymin=None,
+                                          ymax=None, kind='linear'):
         """
         Define velocities within a layer by stretching a velocity function.
 
@@ -101,7 +114,9 @@ class VM(object):
         depth node in the layer.
         
         :param idx: Index of layer to work on. 
-        :param vel: ``list`` of layer velocities.
+        :param vel: Optional. ``list`` of layer velocities. Default is to 
+            stretch a 1d function between the deepest velocity of the overlying
+            layer and the shallowest velocity of the underlying layer.
         :param xmin, xmax: Optional. Set the x-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             x-domain.
@@ -122,39 +137,57 @@ class VM(object):
         for ix in self.xrange2i(xmin, xmax):
             for iy in self.yrange2i(ymin, ymax):
                 iz0, iz1 = self.z2i((z0[ix,iy], z1[ix,iy]))
+                iz1 += 1
                 z = self.z[iz0:iz1]
                 if len(z) == 0:
                     # in pinchout, nothing to do
                     continue
+                # Make a copy of velocities for this iteration
+                _vel = np.copy(vel)
+                # Get top and bottom velocities, if they are None
+                if vel[0] is None:
+                    _vel[0] = 1./self.sl[ix, iy, max(iz0-1, 0)]
+                if len(vel) > 1:
+                    if vel[1] is None:
+                        _vel[1] = 1./self.sl[ix, iy, min(iz1+1, self.nx)]
                 # Pad interpolates for rounding to grid coordinates
                 if nvel == 1:
                     # Set constant value
-                    v = np.asarray([vel])
+                    v = np.asarray([_vel])
                 else:
                     # Interpolate velocities
                     zi = z0[ix,iy] + (z1[ix,iy] - z0[ix,iy])\
                             *np.arange(0., nvel)/(nvel - 1)
-                    vi = np.copy(vel)
+                    vi = np.copy(_vel)
                     if z[0] < zi[0]:
                         zi = np.insert(zi, 0, z[0])
-                        vi = np.insert(vi, 0, vel[0])
+                        vi = np.insert(vi, 0, _vel[0])
                     if z[-1] > zi[-1]:
                         zi = np.append(zi, z[-1])
-                        vi = np.append(vi, vel[-1])
+                        vi = np.append(vi, _vel[-1])
                     zv = interp1d(zi, vi, kind=kind)
                     v = zv(z)
                 self.sl[ix, iy, iz0:iz1] = 1./v
 
-    def define_constant_layer_velocities(self, idx, v):
+    def define_constant_layer_velocity(self, idx, v, xmin=None,
+                                          xmax=None, ymin=None, ymax=None):
         """
         Define a constant velocity for an entire layer.
 
         :param idx: Index of layer to work on.
         :param v: Velocity.
+        :param xmin, xmax: Optional. Set the x-coordinate limits for modifying
+            velocities. Default is to change velocities over the entire
+            x-domain.
+        :param ymin, ymax: Optional. Set the y-coordinate limits for modifying
+            velocities. Default is to change velocities over the entire
+            y-domain.
         """
-        self.define_stretched_layer_velocities(idx, [v])
+        self.define_stretched_layer_velocities(idx, [v], xmin=xmin, xmax=xmax,
+                                              ymin=ymin, ymax=ymax)
 
-    def define_layer_velocity_gradient(self, idx, dvdz, v0=None):
+    def define_layer_velocity_gradient(self, idx, dvdz, v0=None, xmin=None,
+                                       xmax=None, ymin=None, ymax=None):
         """
         Replace velocities within a layer by defining a gradient.
 
@@ -162,11 +195,18 @@ class VM(object):
         :param dvdz: Velocity gradient.
         :param v0: Optional. Velocity at top of layer. Default is to use the
             value at the base of the overlying layer.
+        :param xmin, xmax: Optional. Set the x-coordinate limits for modifying
+            velocities. Default is to change velocities over the entire
+            x-domain.
+        :param ymin, ymax: Optional. Set the y-coordinate limits for modifying
+            velocities. Default is to change velocities over the entire
+            y-domain.
         """
         z0, z1 = self.get_layer_bounds(idx)
-        for ix,x in enumerate(self.x):
-            for iy,y in enumerate(self.y):
+        for ix in self.xrange2i(xmin, xmax):
+            for iy in self.yrange2i(ymin, ymax):
                 iz0, iz1 = self.z2i((z0[ix,iy], z1[ix,iy]))
+                iz1 += 1
                 z = self.z[iz0:iz1] - self.z[iz0]
                 if v0 is None:
                     if iz0 == 0:
@@ -697,9 +737,9 @@ class VM(object):
         :param index: Index of the interface to remove.
         """
         self.rf = np.delete(self.rf, index, 0)
-        self.jp = np.delete(self.rf, index, 0)
-        self.ir = np.delete(self.rf, index, 0)
-        self.ij = np.delete(self.rf, index, 0)
+        self.jp = np.delete(self.jp, index, 0)
+        self.ir = np.delete(self.ir, index, 0)
+        self.ij = np.delete(self.ij, index, 0)
 
     def insert_interface(self, rf, jp=None, ir=None, ij=None):
         """

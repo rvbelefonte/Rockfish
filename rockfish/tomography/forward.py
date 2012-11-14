@@ -1,15 +1,15 @@
 """
-Wrappers for working with the VM Tomography raytracing program.
+Wrappers for VM Tomography raytracing
 """
 import os
 import subprocess
 import warnings
 import time
-from rockfish.vmtomo.vm import readVM
+from rockfish.tomography import readVM
 
-RAYTR_PROG = 'slim_rays'
+RAYTR_PROGRAM = 'slim_rays'
 
-def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True, 
+def raytrace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True, 
           grid_size=None, forward_star_size=[6, 6, 12], min_angle=0.5,
           min_velocity=1.4, max_node_size=620, top_layer=1, bottom_layer=None,
           **kwargs):
@@ -84,10 +84,10 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         os.remove(rayfile)
     for i,_inst in enumerate(inst):
         # Set flag to leave rayfan file open for additional instruments
-        if i == ninst - 1:
-            iheader = 0
+        if i == 0:
+            irayfile_exists = 0
         else:
-            iheader = 1
+            irayfile_exists = 1
         recx, recy, recz = pickdb.get_vmtomo_instrument_position(_inst)
         # Build input
         print '='*80
@@ -96,7 +96,7 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         print '='*80
         sh = '#!/bin/bash\n'
         sh += '#\n'
-        sh += '{:} << eof\n'.format(RAYTR_PROG)
+        sh += '{:} << eof\n'.format(RAYTR_PROGRAM)
         sh += '{:}\n'.format(vmfile)
         sh += '{:}\n'.format(_inst)
         sh += '{:},{:},{:}\n'.format(grid_size[0], grid_size[1], grid_size[2])
@@ -111,7 +111,7 @@ def trace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         sh += '{:}\n'.format(input_dir + '/' + shotfile)
         sh += '{:}\n'.format(input_dir + '/' + pickfile)
         sh += '{:}\n'.format(rayfile)
-        sh += '{:}\n'.format(iheader)
+        sh += '{:}\n'.format(irayfile_exists)
         sh += '0.0\n' #XXX seting instrument static to 0. here! 
                       #TODO take as input
         sh += 'eof\n'
