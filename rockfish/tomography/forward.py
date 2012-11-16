@@ -9,9 +9,9 @@ from rockfish.tomography import readVM
 
 RAYTR_PROGRAM = 'slim_rays'
 
-def raytrace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True, 
+def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True, 
           grid_size=None, forward_star_size=[6, 6, 12], min_angle=0.5,
-          min_velocity=1.4, max_node_size=620, top_layer=1, bottom_layer=None,
+          min_velocity=1.4, max_node_size=620, top_layer=0, bottom_layer=None,
           **kwargs):
     """
     Wrapper for running the VM Tomography raytracer.
@@ -27,8 +27,8 @@ def raytrace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         :class:`rockfish.picking.database.PickDatabaseConnection` to get picks
         from.
     :param input_dir: Optional. Path for writing intermediate files that are
-        used as input to the raytracing program. Default is to put these files
-        in the current working directory.
+        used as input to the raytracing program. Default is to create a new
+        directory named ``'forward'``, if it does not already exist.
     :param cleanup: Optional. Determines whether or not to remove intermediate
         files that are used as input to the raytracing program. Default is to
         remove these files.
@@ -45,7 +45,7 @@ def raytrace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
         each raypath. The raytracing program will adjust this size if needed.
         Default is ``620``.
     :param top_layer: Optional. The index of the top-most layer to trace rays
-        through. Default is ``1`` (i.e., the top-most layer in the model).
+        through. Default is ``0`` (i.e., the top-most layer in the model).
     :param bottom_layer: Optional. The index of the bottom-most layer to trace
         rays through. Default is the index of the bottom-most layer in the
         model.
@@ -55,11 +55,8 @@ def raytrace(vmfile, pickdb, rayfile, input_dir=None, cleanup=True,
     instfile = 'inst.dat'
     pickfile = 'picks.dat'
     shotfile = 'shots.dat'
-    if input_dir is not None:
-        if not os.path.isdir(input_dir):
-            os.mkdir(input_dir)
-    else:
-        input_dir = '.'
+    if not os.path.isdir(input_dir):
+        os.mkdir(input_dir)
     pickdb.write_vmtomo(instfile=instfile, pickfile=pickfile, 
                         shotfile=shotfile, directory=input_dir, **kwargs)
     # ensure full path for vm programs

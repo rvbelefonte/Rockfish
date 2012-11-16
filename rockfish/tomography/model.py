@@ -102,6 +102,45 @@ class VM(object):
         """
         raise NotImplementedError
 
+    def calculate_jumps(self, idx, xmin=None, xmax=None, ymin=None, ymax=None):
+        """
+        Calculate slowness jumps.
+
+        :param idx: Index of interface to calculate slowness jumps on.
+        :param xmin, xmax: Optional. Set the x-coordinate limits for 
+            calculating jumps. Default is to calculate jumps over the entire
+            x-domain.
+        :param ymin, ymax: Optional. Set the y-coordinate limits for 
+            calculating jumps. Default is to calculate jumps over the entire
+            y-domain.
+        """
+        _, z = self.get_layer_bounds(idx)
+        for ix in self.xrange2i(xmin, xmax):
+            for iy in self.yrange2i(ymin, ymax):
+                iz0 = self.z2i((z[ix,iy]))
+                sl0 = self.sl[ix,iy,iz0]
+                sl1 = self.sl[ix,iy,iz+1]
+
+    def apply_jumps(self, remove=False):
+        """
+        Apply slowness jumps to the grid.
+        """
+        for iref in range(0, self.nr):
+            z0, _ = self.get_layer_bounds(iref)
+            for ix in range(0, self.nx):
+                for iy in range(0, self.ny):
+                    iz0, = self.z2i((z0[ix,iy]))
+                    if remove is False:
+                        self.sl[ix, iy, iz0:] += self.jp[iref, ix, iy]
+                    else:
+                        self.sl[ix, iy, iz0:] -= self.jp[iref, ix, iy]
+
+    def remove_jumps(self):
+        """
+        Remove slowness jumps from the grid.
+        """
+        self.apply_jumps(self, remove=True):
+
     def define_stretched_layer_velocities(self, idx, vel=[None, None],
                                           xmin=None, xmax=None, ymin=None,
                                           ymax=None, kind='linear'):
@@ -347,6 +386,19 @@ class VM(object):
         # Subtract 1 from array index flags to conform to Python convention
         self.ir -= 1
         self.ij -= 1
+
+    def read_dws_grid(self, filename):
+        """
+        Read derivative-weight sum (DWS) data.
+
+        :param filename: Filename of an ASCII with columns: x, y, z, dws.
+        """
+        f = open(filename)
+        dws = []
+        for row in f:
+            dws.append(float(row.split()[3]))
+        dws = np.asarray(dws)
+        self.dws_sl = np.reshape(dws, (self.nx, self.ny, self.nz))
 
     def write(self, filename, fmt='vm', endian=ENDIAN, **kwargs):
         """
@@ -730,16 +782,17 @@ class VM(object):
         vm.ij = np.asarray(vm.ij)
         return vm
 
-    def remove_interface(self, index):
+    def remove_interface(self, idx):
         """
         Remove an interface from the model.
         
-        :param index: Index of the interface to remove.
+        :param idx: Index of the interface to remove.
         """
-        self.rf = np.delete(self.rf, index, 0)
-        self.jp = np.delete(self.jp, index, 0)
-        self.ir = np.delete(self.ir, index, 0)
-        self.ij = np.delete(self.ij, index, 0)
+        self.rf = np.delete(self.rf, idx, 0)
+        self.jp = np.delete(self.jp, idx, 0)
+        self.ir = np.delete(self.ir, idx, 0)
+        self.ij = np.delete(self.ij, idx, 0)
+        print "Removed interface with index {:}.".format(idx)
 
     def insert_interface(self, rf, jp=None, ir=None, ij=None):
         """
@@ -844,6 +897,50 @@ class VM(object):
         else:
             plt.draw()
 
+    def plot_dws(self, x=None, y=None, z=None, ax=None):
+        """
+        Plot DWS along a model slice.
+        
+        :param x,y,z: Optional. Coordinate value of slice to plot. Give one of
+            the three. Default is to plot the first x-z plane (y=ymin) in the
+            model.
+        :param ax: Optional.  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create and show a new figure.
+        """
+        # Determine slice coordinates
+        if False not in [v is None for v in [x,y,z]]:
+            # Plot the 1st x-z plane
+            y = self.r1[1]
+        # Extract grid slice to plot
+        dws, bounds, _extents, labels = self._slice_for_plot(
+            x=x, y=y, z=z, grid=self.dws_sl)
+        extents = (_extents[0], _extents[1], _extents[3], _extents[2])
+        # Mask grid
+        idx0 = np.nonzero(dws==0)
+        idx = np.nonzero(dws>0)
+        idx_off = np.nonzero(dws<0)
+        dws[idx] = np.log10(dws[idx])
+        dws[idx0] = 0
+        dws[idx_off] = np.nan
+        # Plot figure
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
+        ax.imshow(dws.transpose(), extent=extents)
+        ax.plot(bounds[0], bounds[1], '-k')
+        plt.xlabel(labels[0])
+        plt.ylabel(labels[1])
+        plt.xlim(self.r1[0], self.r2[0])
+        plt.title('log10(DWS)')
+        # Show (TODO save, draw) plot
+        if show:
+            plt.show()
+        else:
+            plt.draw()
+
     def plot_profile(self, x=None, y=None, z=None, velocity=True,
                      ax=None):
         """
@@ -922,7 +1019,7 @@ class VM(object):
         else:
             plt.draw()
 
-    def _slice_for_plot(self, x=None, y=None, z=None):
+    def _slice_for_plot(self, x=None, y=None, z=None, grid=None):
         """
         Extract a slice from the 3D VM model slowness grid for plotting.
         
@@ -930,6 +1027,8 @@ class VM(object):
             one of the three.  
         :param plot_info: Optional. If True, also returns plot extents and axis
             labels. Default is False.
+        :param grid: Optional. Grid to slice. Default is to slice the slowness
+            grid.
         :returns sl: Slice as a 2D stack of numpy arrays.
         :returns bounds: Interface depths
         :returns extents: Extents of the 2D slice as a tuple.
@@ -948,11 +1047,14 @@ class VM(object):
             dz = 1
         else:
             dz = self.dz
+        # Set grid to slice
+        if grid is None:
+            grid = self.sl
         # Extract the grid slice
         if (x is not None) and (y is None) and (z is None):
             # Take a slice in the y-z plane
             ix = int((x - self.r1[0])/dx)
-            sl = self.sl[ix]
+            sl = grid[ix]
             _x = list(np.linspace(self.r1[1],self.r2[1],self.ny))
             x = []; y = []
             for iref in range(0, self.nr):
@@ -965,7 +1067,7 @@ class VM(object):
         elif (x is None) and (y is not None) and (z is None):
             # Take a slice in the x-z plane
             iy = int((y - self.r1[1])/dy)
-            sl = np.asarray([d[iy] for d in self.sl])
+            sl = np.asarray([d[iy] for d in grid])
             _x = list(np.linspace(self.r1[0], self.r2[0], self.nx))
             x = []; y = []
             for iref in range(0, self.nr):
@@ -978,7 +1080,7 @@ class VM(object):
         elif (x is None) and (y is None) and (z is not None):
             # Take a slice in the x-y plane
             iz = int((z - self.r1[2])/dz)
-            sl = self.sl.transpose()[iz]
+            sl = grid.transpose()[iz]
             x = [None]
             y = [None]
             dims = (0, 1)
