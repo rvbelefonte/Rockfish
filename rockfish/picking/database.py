@@ -149,6 +149,7 @@ site              text       Instrument site name   None
 
 """
 import logging
+import matplotlib.pyplot as plt
 from rockfish.database.database import RockfishDatabaseConnection
 from rockfish.database.utils import format_row_factory
 
@@ -410,6 +411,71 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         f = open(directory + '/' + shotfile, 'w')
         f.write(self.vmtomo_shots)
         f.close()
+
+    def plot_geometry(self, dim=[0,1], receivers=True, sources=True, ax=None,
+                      outfile=None):
+        """
+        Plot source and receiver positions on a 2D plot.
+
+        :param dim: Coordinate dimensions to plot paths into. Default is z vs. x
+            (``dim=[0,2]``).
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes.
+        :param receivers: Determines whether or not to plot symbols at
+            the receiver locations. Default is ``True``.
+        :param sources: Determines whether or not to plot symbols at
+            the source locations. Default is ``False``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Defaults is ``None``.
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
+        if sources:
+            for src in self.get_source_positions():
+                ax.plot(src[dim[0]], src[dim[1]], '*r')
+        if receivers:
+            for rec in self.get_receiver_positions():
+                ax.plot(rec[dim[0]], rec[dim[1]], 'vy')
+        if outfile:
+            fig.savefig(outfile)
+        elif show:
+            plt.show()
+        else:
+            plt.draw()
+
+    def get_source_positions(self, **kwargs):
+        """
+        Get source positions from the database.
+        
+        :param **kwargs: Optional keyword=value arguments for fields in the
+            traces table. Default is to write all picks.
+        """
+        sql = 'SELECT source_x, source_y, source_z FROM '
+        sql += TRACE_TABLE 
+        if len(kwargs) > 0:
+            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
+                                            for k in kwargs])
+        return [(v[0], v[1], v[2]) for v in self.execute(sql).fetchall()]
+        
+    def get_receiver_positions(self, **kwargs):
+        """
+        Get receiver positions from the database.
+        
+        :param **kwargs: Optional keyword=value arguments for fields in the
+            traces table. Default is to write all picks.
+        """
+        sql = 'SELECT receiver_x, receiver_y, receiver_z FROM '
+        sql += TRACE_TABLE 
+        if len(kwargs) > 0:
+            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
+                                            for k in kwargs])
+        return [(v[0], v[1], v[2]) for v in self.execute(sql).fetchall()]
 
     def get_vmtomo_instrument_position(self, instrument):
         """

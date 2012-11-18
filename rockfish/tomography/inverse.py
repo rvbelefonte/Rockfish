@@ -27,8 +27,8 @@ def invert(input_vmfile, rayfile, output_vmfile,
            station_correction_scale=0.04, station_correction_weight=0.0,
            station_correction_file='station_statics.dat',
            headwaves=True, strict_layers=True, extrapolate_grid=True,
-           ray_skip_interval=1, horizontal_ray_extension=20,
-           vertical_ray_extension=5, slowness_reference_scale=0.2,
+           ray_skip_interval=1, horizontal_ray_extension=1,
+           vertical_ray_extension=0.2, slowness_reference_scale=0.2,
            vscale_pow=2, matrix_terms=2, penalty_terms=2,
            reflector_depth_weight=0.5, slowness_jump_weight=10,
            aspect_ratio=1.0,
@@ -90,10 +90,10 @@ def invert(input_vmfile, rayfile, output_vmfile,
         the inversion. 1=use all rays, n=use every n-th ray. Default is 1.
     :param horizontal_ray_extension: Optional. Horizontal distance over which to
         extend model sensitivity. Units are the same as the model's distance
-        units. Default is ``20.``.
+        units. Default is ``1.``.
     :param vertical_ray_extension: Optional. Vertical distance over which to
         extend model sensitivity. Units are the same as the model's distance
-        units. Default is ``5.``.
+        units. Default is ``0.2``.
     :param slowness_reference_scale: Optional. Scaling factor for the reference
         slowness model. Default is ``0.2``.
     :param vscale_pow: Optional. ????. Default is ``2``.

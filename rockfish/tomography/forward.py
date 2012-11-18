@@ -79,6 +79,7 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     ninst = len(inst)
     if os.path.isfile(rayfile):
         os.remove(rayfile)
+    start_all = time.clock()
     for i,_inst in enumerate(inst):
         # Set flag to leave rayfan file open for additional instruments
         if i == 0:
@@ -132,3 +133,12 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
         print ' Completed raytracing for receiver #{:} in {:} seconds.'\
             .format(_inst, elapsed)
         print '*'*80
+    print '/'*80
+    print 'Completed raytracing for all recievers in {:} seconds.'\
+            .format(time.clock() - start_all)
+    if os.path.isfile(rayfile):
+        print 'Output rayfile is: {:}'.format(rayfile)
+    else:
+        msg = 'Did not create a rayfile.'
+        warnings.warn(msg)
+    print '/'*80

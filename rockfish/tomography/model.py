@@ -37,16 +37,16 @@ class VM(object):
         """
         Create a new model instance.
 
-        :param r1: Optional. Minimum values for grid dimensions given as the 
+        :param r1: Minimum values for grid dimensions given as the 
             tuple ``(xmin, ymin, zmin)``. Default is ``(0,0,0)``.
-        :param r2: Optional. Maximum values for grid dimensions given as the 
+        :param r2: Maximum values for grid dimensions given as the 
             tuple ``(xmax, ymax, zmax)``. Default is ``(250,0,30)``.
-        :param dx: Optional. Spacing between x-nodes. Default is ``0.5``.
-        :param dy: Optional. Spacing between y-nodes. Default is ``1``.
-        :param dz: Optional. Spacing between z-nodes. Default is ``0.1``.
-        :param nr: Optional. Number of interfaces in the model. Used to 
+        :param dx: Spacing between x-nodes. Default is ``0.5``.
+        :param dy: Spacing between y-nodes. Default is ``1``.
+        :param dz: Spacing between z-nodes. Default is ``0.1``.
+        :param nr: Number of interfaces in the model. Used to 
             define the size of the interface arrays. Default is ``0``.
-        :param init_model: Optional. Determines whether or not to initialize
+        :param init_model: Determines whether or not to initialize
             parameters and data arrays. Default is True.
         """
         if init_model:
@@ -56,9 +56,9 @@ class VM(object):
         """
         Print an overview of the VM model.
 
-        :param extended: Optional. Determines whether or not to print detailed
+        :param extended: Determines whether or not to print detailed
             information about each layer. Default is to print an overview.
-        :param title: Optional. Sets the title in the banner. Default is
+        :param title: Sets the title in the banner. Default is
             'Velocity Model'.
         """
         if (title is None) and hasattr(self, 'file'):
@@ -102,34 +102,38 @@ class VM(object):
         """
         raise NotImplementedError
 
-    def calculate_jumps(self, idx, xmin=None, xmax=None, ymin=None, ymax=None):
+    def calculate_jumps(self, iref, xmin=None, xmax=None, ymin=None, ymax=None):
         """
         Calculate slowness jumps.
 
-        :param idx: Index of interface to calculate slowness jumps on.
-        :param xmin, xmax: Optional. Set the x-coordinate limits for 
+        :param iref: Index of interface to calculate slowness jumps on.
+        :param xmin, xmax: Set the x-coordinate limits for 
             calculating jumps. Default is to calculate jumps over the entire
             x-domain.
-        :param ymin, ymax: Optional. Set the y-coordinate limits for 
+        :param ymin, ymax: Set the y-coordinate limits for 
             calculating jumps. Default is to calculate jumps over the entire
             y-domain.
         """
-        _, z = self.get_layer_bounds(idx)
+        _, z0 = self.get_layer_bounds(iref)
         for ix in self.xrange2i(xmin, xmax):
             for iy in self.yrange2i(ymin, ymax):
-                iz0 = self.z2i((z[ix,iy]))
+                iz0 = self.z2i([z0[ix,iy]])[0]
                 sl0 = self.sl[ix,iy,iz0]
-                sl1 = self.sl[ix,iy,iz+1]
+                sl1 = self.sl[ix,iy,iz0+1]
+                self.jp[iref-1][ix][iy] = sl1 - sl0
 
     def apply_jumps(self, remove=False):
         """
         Apply slowness jumps to the grid.
+
+        :param remove: Determines whether jumps should be removed or applied.
+            Default is ``False`` (i.e., jumps are applied).
         """
         for iref in range(0, self.nr):
             z0, _ = self.get_layer_bounds(iref)
             for ix in range(0, self.nx):
                 for iy in range(0, self.ny):
-                    iz0, = self.z2i((z0[ix,iy]))
+                    iz0 = self.z2i([z0[ix,iy]])[0]
                     if remove is False:
                         self.sl[ix, iy, iz0:] += self.jp[iref, ix, iy]
                     else:
@@ -139,7 +143,7 @@ class VM(object):
         """
         Remove slowness jumps from the grid.
         """
-        self.apply_jumps(self, remove=True):
+        self.apply_jumps(remove=True)
 
     def define_stretched_layer_velocities(self, idx, vel=[None, None],
                                           xmin=None, xmax=None, ymin=None,
@@ -153,13 +157,13 @@ class VM(object):
         depth node in the layer.
         
         :param idx: Index of layer to work on. 
-        :param vel: Optional. ``list`` of layer velocities. Default is to 
+        :param vel: ``list`` of layer velocities. Default is to 
             stretch a 1d function between the deepest velocity of the overlying
             layer and the shallowest velocity of the underlying layer.
-        :param xmin, xmax: Optional. Set the x-coordinate limits for modifying
+        :param xmin, xmax: Set the x-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             x-domain.
-        :param ymin, ymax: Optional. Set the y-coordinate limits for modifying
+        :param ymin, ymax: Set the y-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             y-domain.
         :param kind: str or int, optional.  Specifies the kind of
@@ -215,10 +219,10 @@ class VM(object):
 
         :param idx: Index of layer to work on.
         :param v: Velocity.
-        :param xmin, xmax: Optional. Set the x-coordinate limits for modifying
+        :param xmin, xmax: Set the x-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             x-domain.
-        :param ymin, ymax: Optional. Set the y-coordinate limits for modifying
+        :param ymin, ymax: Set the y-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             y-domain.
         """
@@ -232,12 +236,12 @@ class VM(object):
 
         :param idx: Index of layer to work on.
         :param dvdz: Velocity gradient.
-        :param v0: Optional. Velocity at top of layer. Default is to use the
+        :param v0: Velocity at top of layer. Default is to use the
             value at the base of the overlying layer.
-        :param xmin, xmax: Optional. Set the x-coordinate limits for modifying
+        :param xmin, xmax: Set the x-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             x-domain.
-        :param ymin, ymax: Optional. Set the y-coordinate limits for modifying
+        :param ymin, ymax: Set the y-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
             y-domain.
         """
@@ -326,9 +330,9 @@ class VM(object):
 
         :param file: An open file-like object or a string which is
             assumed to be a filename.
-        :param endian: Optional. The endianness of the file. Default is
+        :param endian: The endianness of the file. Default is
             to use machine's native byte order. 
-        :param head_only: Optional. Determines whether or not to read the grid
+        :param head_only: Determines whether or not to read the grid
             data. Useful is only interested in the grid dimension values.
             Default is to read the entire file.
         """
@@ -347,9 +351,9 @@ class VM(object):
 
         :param file: A file-like object with the file pointer set at the
             beginning of a VM binary file.
-        :param endian: Optional. The endianness of the file. Default is
+        :param endian: The endianness of the file. Default is
             to use machine's native byte order.
-        :param head_only: Optional. Determines whether or not to read the grid
+        :param head_only: Determines whether or not to read the grid
             data. Useful if one is only interested in the grid dimension values.
             Default is to read the entire file.
         """
@@ -410,10 +414,10 @@ class VM(object):
             and additional documentation.
 
         :param filename: Name of a file to write data to.
-        :param fmt: Optional.  Format to write data in. Default is the native
+        :param fmt:  Format to write data in. Default is the native
             VM Tomography binary format (``format='vm'``). Other options are
             ``'ascii_grid'``. See documentation for functions labeled
-        :param endian: Optional. The endianness of the file for binary formats.
+        :param endian: The endianness of the file for binary formats.
             Default is to use the machine's native byte order.
         """
         if fmt is 'vm':
@@ -431,7 +435,7 @@ class VM(object):
         Write the VM model in the native VM Tomography format.
 
         :param filename: Name of a file to write data to.
-        :param endian: Optional. The endianness of the file. Default is
+        :param endian: The endianness of the file. Default is
             to use machine's native byte order.
         """
         f = open(filename, 'w')
@@ -465,9 +469,9 @@ class VM(object):
         Write VM model slowness grid in an ASCII format.
 
         :param filename: Name of a file to write data to.
-        :param meters: Optional. Output distance units in meters. Default is
+        :param meters: Output distance units in meters. Default is
             kilometers.
-        :param velocity: Optional. Output slowness values as velocity. Default
+        :param velocity: Output slowness values as velocity. Default
             is slowness.
         """
         file = open(filename, 'w')
@@ -513,11 +517,11 @@ class VM(object):
         """
         Write the VM model slowness grid in the SEG-Y format.
 
-        :param endian: Optional. The endianness of the file. Default is big
+        :param endian: The endianness of the file. Default is big
             endian (the SEG-Y standard).
-        :param velocity: Optional. Output slowness values as velocity. Default
+        :param velocity: Output slowness values as velocity. Default
             is slowness.
-        :param meters: Optional. Output distance units in meters. Default is
+        :param meters: Output distance units in meters. Default is
             kilometers.
         """
         # Copy data to SEGYFile instance
@@ -528,11 +532,11 @@ class VM(object):
         """
         Convert VM slowness grid to a SEGYFile instance.
 
-        :param endian: Optional. The endianness of the file. Default is big
+        :param endian: The endianness of the file. Default is big
             endian (the SEG-Y standard).
-        :param velocity: Optional. Output slowness values as velocity. Default
+        :param velocity: Output slowness values as velocity. Default
             is slowness.
-        :param meters: Optional. Output distance units in meters. Default is
+        :param meters: Output distance units in meters. Default is
             kilometers.
         """
         segy = SEGYFile()
@@ -641,9 +645,9 @@ class VM(object):
         """
         Returns a list of x indices for a given x range.
 
-        :param xmin: Optional. Minimum value of x. Default is the minimum x
+        :param xmin: Minimum value of x. Default is the minimum x
             value in the model.
-        :param xmax: Optional. Maximum value of x. Default is the maximum x
+        :param xmax: Maximum value of x. Default is the maximum x
             value in the model.
         :returns: ``list`` of x indices.
         """
@@ -666,9 +670,9 @@ class VM(object):
         """
         Returns a list of y indices for a given y range.
 
-        :param ymin: Optional. Minimum value of y. Default is the minimum y
+        :param ymin: Minimum value of y. Default is the minimum y
             value in the model.
-        :param ymax: Optional. Maximum value of y. Default is the maximum y
+        :param ymax: Maximum value of y. Default is the maximum y
             value in the model.
         :returns: ``list`` of y indices.
         """
@@ -691,9 +695,9 @@ class VM(object):
         """
         Returns a list of z indices for a given z range.
 
-        :param zmin: Optional. Minimum value of z. Default is the minimum z
+        :param zmin: Minimum value of z. Default is the minimum z
             value in the model.
-        :param zmax: Optional. Maximum value of z. Default is the maximum z
+        :param zmax: Maximum value of z. Default is the maximum z
             value in the model.
         :returns: ``list`` of z indices.
         """
@@ -717,11 +721,13 @@ class VM(object):
         z = iz*self.dz + self.r1[2]
         return x,y,z
 
-    def slice_along_xy_line(self, x, y, dx=None, nx=None):
+    def slice_along_xy_line(self, x, y, dx=None):
         """
         Extract a vertical slice along a line.
 
         :param x,y: Lists of coordinates to take slice along.
+        :param dx: Grid spacing for the new model. Default is to use
+            the x-coordinate spacing of the current model.
         :returns: VM model along the specified line
         """
         assert len(x) == len(y), 'x and y must be the same length'
@@ -753,6 +759,8 @@ class VM(object):
         vm.ny = 1
         vm.nz = self.nz
         vm.nr = self.nr
+        if hasattr(self, 'dws_sl'):
+            vm.dws_sl = []
         # Pull slowness grid and interface values along line
         interp_y = interp1d(x, y)
         interp_x = interp1d(_xline, x)
@@ -770,6 +778,9 @@ class VM(object):
             iy = self._y2i(_y)
             # get slowness collumn
             vm.sl.append([self.sl[ix][iy]])
+            # DWS grid
+            if hasattr(self, 'dws_sl'):
+                vm.dws_sl.append([self.dws_sl[ix][iy]])
             # get interfaces
             for iref in range(0, self.nr):
                 vm.rf[iref].append([self.rf[iref][ix][iy]])
@@ -800,15 +811,15 @@ class VM(object):
 
         :param rf: Interface depths given as a Numpy array_like object with
             shape ``(nx, ny)``.
-        :param jp: Optional. Slowness jumps given as a Numpy array_like object
+        :param jp: Slowness jumps given as a Numpy array_like object
             with shape ``(nx, ny)``. Default is to set the slowness jump for 
             all nodes on the new interface to zero.
-        :param ir: Optional. Indices of the interfaces to use in the inversion
+        :param ir: Indices of the interfaces to use in the inversion
             for interface depths, given as a Numpy array_like object
             with shape ``(nx, ny)``. A ``-1`` value indicates that a node 
             should not be used in the inversion. Default is to assign all 
             nodes to the index of the new interface.
-        :param ij: Optional. Indices of the interfaces to use in the inversion
+        :param ij: Indices of the interfaces to use in the inversion
             for slowness jumps, given as a Numpy array_like object
             with shape ``(nx, ny)``. A ``-1`` value indicates that a node
             should not be used in the inversion. Default is to assign all
@@ -857,100 +868,205 @@ class VM(object):
 #        # XXX dev!
 #        raise NotImplementedError
 
-    def plot(self, x=None, y=None, z=None, velocity=True, ax=None):
+    def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
+             ij=True, apply_jumps=True, outfile=None):
         """
-        Plot a slice from a VM slowness model.
-        
-        :param x,y,z: Optional. Coordinate value of slice to plot. Give one of
-            the three. Default is to plot the first x-z plane (y=ymin) in the
-            model.
-        :param velocity: Optional. Determines whether to grid values in units
+        Plot the velocity grid and reflectors.
+
+        :param x,y: Coordinate values of 2D slice to plot. Default is to plot 
+            the first x-z plane in the model.
+        :param velocity: Determines whether to grid values in units
             of velocity or slowness. Default is to plot velocity.
-        :param ax: Optional.  A :class:`matplotlib.Axes.axes` object to plot
-            into. Default is to create and show a new figure.
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes. 
+        :param rf: Plot a thin white line for each reflector. Default is
+            ``True``.
+        :param ir: Plot bold white line for portion of reflector depths
+            that are active in the inversion (i.e., ir>0). Default is ``True``.
+        :param ij: Plot bold white line for portion of reflector slowness jumps
+            that are active in the inversion (i.e., ij>0). Default is ``True``.
+        :param apply_jumps: Determines whether or not to apply slowness jumps to
+            the grid before plotting. Default is ``True``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Defaults is ``None``.
         """
-        # Determine slice coordinates
-        if False not in [v is None for v in [x,y,z]]:
-            # Plot the 1st x-z plane
-            y = self.r1[1]
-        # Extract grid slice to plot
-        sl, bounds, _extents, labels = self._slice_for_plot(
-            x=x, y=y, z=z)
-        extents = (_extents[0], _extents[1], _extents[3], _extents[2])
-        if velocity is True:
-            sl = 1./sl
-        # Plot figure
+        # Pull slice from model if not already 2D
+        if (x is None) and (y is None):
+            vm = self
+        else:
+            vm = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+        # Apply jumps
+        if apply_jumps:
+            vm.apply_jumps()
+        # Plot the slice
+        vm._plot2d(velocity=velocity, ax=ax, rf=rf, ir=ir, ij=ij, outfile=outfile)
+        # remove the jumps
+        if apply_jumps:
+            vm.remove_jumps()
+
+    def plot_smooth_and_jumped_model(self, x=None, y=None, velocity=True, 
+                                     rf=True, ir=True, ij=True, apply_jumps=True,
+                                     outfile=None):
+        """
+        Plot a comparision of model grids with and without jumps.
+
+        :param x,y: Coordinate values of 2D slice to plot. Default is to plot 
+            the first x-z plane in the model.
+        :param velocity: Determines whether to grid values in units
+            of velocity or slowness. Default is to plot velocity.
+        :param rf: Plot a thin white line for each reflector. Default is
+            ``True``.
+        :param ir: Plot bold white line for portion of reflector depths
+            that are active in the inversion (i.e., ir>0). Default is ``True``.
+        :param ij: Plot bold white line for portion of reflector slowness jumps
+            that are active in the inversion (i.e., ij>0). Default is ``True``.
+        :param apply_jumps: Determines whether or not to apply slowness jumps to
+            the grid before plotting. Default is ``True``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Defaults is ``None``.
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(211)
+        self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=False)
+        ax.set_title('Smooth Model')
+        ax = fig.add_subplot(212)
+        self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=True)
+        ax.set_title('Jumped Model')
+        if outfile:
+            fig.savefig(outfile)
+        else:
+            plt.show()
+
+    def plot_layers(self, x=None, y=None, ax=None, rf=True, ir=False,
+             ij=False, apply_jumps=True, outfile=None):
+        """
+        Plot the model with grid nodes colored by layer id. 
+
+        :param x,y: Coordinate values of 2D slice to plot. Default is to plot 
+            the first x-z plane in the model.
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes. 
+        :param rf: Plot a thin white line for each reflector. Default is
+            ``True``.
+        :param ir: Plot bold white line for portion of reflector depths
+            that are active in the inversion (i.e., ir>0). Default is ``False``.
+        :param ij: Plot bold white line for portion of reflector slowness jumps
+            that are active in the inversion (i.e., ij>0). Default is ``False``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Defaults is ``None``.
+        """
+        # Pull slice from model if not already 2D
+        if (x is None) and (y is None):
+            vm = self
+        else:
+            vm = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+        # Plot the slice
+        grid = np.asarray([v[0] for v in self.layers])
+        vm._plot2d(velocity=False, ax=ax, rf=rf, ir=ir, ij=ij, grid=grid,
+                   outfile=outfile)
+
+    def _plot2d(self, velocity=True, ax=None, rf=True, ir=True, ij=True, grid=None,
+                outfile=None):
+        """
+        Plot a 2D model.
+
+        :param velocity: Determines whether to grid values in units
+            of velocity or slowness. Default is to plot velocity.
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes.
+        :param rf: Plot a thin white line for each reflector. Default is
+            ``True``.
+        :param ir: Plot bold white line for portion of reflector depths
+            that are active in the inversion (i.e., ir>0). Default is ``True``.
+        :param ij: Plot bold black line for portion of reflector slowness jumps
+            that are active in the inversion (i.e., ij>0). Default is ``True``.
+        :param grid: Grid to plot as base plot. Default is to plot slowness or
+            velocity from ``self.sl``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Defaults is ``None``.
+        """
+        assert self.ny == 1, "Model must be 2D with ny=1."
+        if grid is None:
+            grid = np.asarray([d[0] for d in self.sl])
+        if velocity:
+            grid = 1./grid
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
             show = True
         else:
             show = False
-        ax.imshow(sl.transpose(), extent=extents)
-        ax.plot(bounds[0], bounds[1], '-k')
-        plt.xlabel(labels[0])
-        plt.ylabel(labels[1])
+        ax.imshow(grid.transpose(), extent=(self.r1[0], self.r2[0], self.r2[2],
+                                            self.r1[2]))
+        for iref in range(0, self.nr):
+            if rf:
+                ax.plot(self.x, self.rf[iref], '-w')
+            if ir:
+                idx = np.nonzero(self.ir[iref].flatten()>0)
+                ax.plot(self.x[idx], self.rf[iref][idx], '-w', linewidth=5)
+            if ij:
+                idx = np.nonzero(self.ij[iref].flatten()>0)
+                ax.plot(self.x[idx], self.rf[iref][idx], '-k', linewidth=3)
         plt.xlim(self.r1[0], self.r2[0])
-        # Show (TODO save, draw) plot
-        if show:
+        plt.ylim(self.r2[2], self.r1[2])
+        plt.xlabel('Offset (km)')
+        plt.ylabel('Depth (km)')
+        if outfile:
+            fig.savefig(outfile)
+        elif show:
             plt.show()
         else:
             plt.draw()
 
-    def plot_dws(self, x=None, y=None, z=None, ax=None):
+    def plot_dws(self, x=None, y=None, ax=None, ir=True, ij=True,
+             outfile=None):
         """
-        Plot DWS along a model slice.
-        
-        :param x,y,z: Optional. Coordinate value of slice to plot. Give one of
-            the three. Default is to plot the first x-z plane (y=ymin) in the
-            model.
-        :param ax: Optional.  A :class:`matplotlib.Axes.axes` object to plot
-            into. Default is to create and show a new figure.
+        Plot the derivative-weight sum grid and reflectors.
+
+        :param x,y: Coordinate values of 2D slice to plot. Default is to plot 
+            the first x-z plane in the model.
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes. 
+        :param ir: Plot bold white line for portion of reflector depths
+            that are active in the inversion (i.e., ir>0). Default is ``True``.
+        :param ij: Plot bold white line for portion of reflector slowness jumps
+            that are active in the inversion (i.e., ij>0). Default is ``True``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Defaults is ``None``.
         """
-        # Determine slice coordinates
-        if False not in [v is None for v in [x,y,z]]:
-            # Plot the 1st x-z plane
-            y = self.r1[1]
-        # Extract grid slice to plot
-        dws, bounds, _extents, labels = self._slice_for_plot(
-            x=x, y=y, z=z, grid=self.dws_sl)
-        extents = (_extents[0], _extents[1], _extents[3], _extents[2])
-        # Mask grid
-        idx0 = np.nonzero(dws==0)
-        idx = np.nonzero(dws>0)
-        idx_off = np.nonzero(dws<0)
-        dws[idx] = np.log10(dws[idx])
-        dws[idx0] = 0
-        dws[idx_off] = np.nan
-        # Plot figure
-        if ax is None:
-            fig = plt.figure()
-            ax = fig.add_subplot(111)
-            show = True
+        if not hasattr(self, 'dws_sl'):
+            msg = 'Instance has does not have a DWS grid to plot.'
+            msg += ' Please use read_dws_grid() to load one.'
+            raise AttributeError(msg)
+        # Pull slice from model if not already 2D
+        if (x is None) and (y is None):
+            vm = self
         else:
-            show = False
-        ax.imshow(dws.transpose(), extent=extents)
-        ax.plot(bounds[0], bounds[1], '-k')
-        plt.xlabel(labels[0])
-        plt.ylabel(labels[1])
-        plt.xlim(self.r1[0], self.r2[0])
-        plt.title('log10(DWS)')
-        # Show (TODO save, draw) plot
-        if show:
-            plt.show()
-        else:
-            plt.draw()
+            vm = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+        # Plot the slice
+        vm._plot2d(velocity=False, ax=ax, grid=np.log10(self.dws_sl),
+                   outfile=outfile)
 
     def plot_profile(self, x=None, y=None, z=None, velocity=True,
                      ax=None):
         """
         Plot a 1D profile from the model grid.
 
-        :param x,y,z: Optional. Coordinate value of profile to plot. Give two
+        :param x,y,z: Coordinate value of profile to plot. Give two
             of the three. Default is to plot the first collumn in the model.
-        :param velocity: Optional. Determines whether to grid values in units
+        :param velocity: Determines whether to grid values in units
             of velocity or slowness. Default is to plot velocity.
-        :param ax: Optional.  A :class:`matplotlib.Axes.axes` object to plot
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create and show a new figure.
         """
         if False not in [v is None for v in [x,y,z]]:
@@ -1025,15 +1141,16 @@ class VM(object):
         
         :param x,y,z: Coordinate value of orthogonal slice to extract. Give
             one of the three.  
-        :param plot_info: Optional. If True, also returns plot extents and axis
+        :param plot_info: If True, also returns plot extents and axis
             labels. Default is False.
-        :param grid: Optional. Grid to slice. Default is to slice the slowness
+        :param grid: Grid to slice. Default is to slice the slowness
             grid.
         :returns sl: Slice as a 2D stack of numpy arrays.
         :returns bounds: Interface depths
         :returns extents: Extents of the 2D slice as a tuple.
         :returns labels: Slice axis labels returned as a tuple.
         """
+        # XXX depreciated 
         # Prevent dividing by zero for 2d models
         if self.dx == 0:
             dx = 1
@@ -1097,9 +1214,9 @@ class VM(object):
         """
         Center a string in a fixed-width line.
 
-        :param char: Optional. Character to fill the pad with. Default is 
+        :param char: Character to fill the pad with. Default is 
             ``' '``.
-        :param width: Optional.  Width of the line. Default is 78.
+        :param width:  Width of the line. Default is 78.
         """
         npad = (width - len(msg))/2
         return char*npad + msg + char*npad
@@ -1157,15 +1274,30 @@ class VM(object):
         return self.r1[2] + np.asarray(range(0, self.nz))*self.dz
     z = property(fget=_get_z)
 
+    def _get_layers(self):
+        """
+        Returns a grid of layer indices for each node in the slowness grid.
+        """
+        lyr = np.ones((self.nx, self.ny, self.nz))*self.nr
+        for iref in range(0, self.nr):
+            # top, bottom boundary depths for current layer
+            z0, z1 = self.get_layer_bounds(iref)
+            for ix in range(0, self.nx): 
+                for iy in range(0, self.ny):
+                    iz0, iz1 = self.z2i((z0[ix,iy], z1[ix,iy]))
+                    lyr[ix,iy,iz0:iz1] = iref
+        return lyr
+    layers = property(fget=_get_layers)
+
 def readVM(file, endian=ENDIAN, head_only=False):
     """
     Read a VM model binary file.
 
     :param file: An open file-like object or a string which is
         assumed to be a filename.
-    :param endian: Optional. The endianness of the file. Default is
+    :param endian: The endianness of the file. Default is
         to use machine's native byte order. 
-    :param head_only: Optional. Determines whether or not to read the grid
+    :param head_only: Determines whether or not to read the grid
         data. Useful is only interested in the grid dimension values.
         Default is to read the entire file.
     """
