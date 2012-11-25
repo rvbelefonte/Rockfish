@@ -151,7 +151,7 @@ site              text       Instrument site name   None
 import logging
 import matplotlib.pyplot as plt
 from rockfish.database.database import RockfishDatabaseConnection
-from rockfish.database.utils import format_row_factory
+from rockfish.database.utils import format_row_factory, format_search
 
 # Default tables and fields
 PICK_TABLE = 'picks'
@@ -459,8 +459,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         sql = 'SELECT source_x, source_y, source_z FROM '
         sql += TRACE_TABLE 
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         return [(v[0], v[1], v[2]) for v in self.execute(sql).fetchall()]
         
     def get_receiver_positions(self, **kwargs):
@@ -473,8 +472,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         sql = 'SELECT receiver_x, receiver_y, receiver_z FROM '
         sql += TRACE_TABLE 
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         return [(v[0], v[1], v[2]) for v in self.execute(sql).fetchall()]
 
     def get_vmtomo_instrument_position(self, instrument):
@@ -500,8 +498,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         sql = 'SELECT * FROM %s' % self.MASTER_VIEW
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         logging.debug("calling: self.execute('%s')" %sql)
         return self.execute(sql).fetchall()
 
@@ -522,8 +519,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         sql = 'SELECT DISTINCT ensemble FROM %s' %self.MASTER_VIEW
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         logging.debug("calling: self.execute('%s')" %sql)
         return [f[0] for f in self.execute(sql).fetchall()]
 
@@ -535,8 +531,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         sql = 'SELECT * FROM {:}'.format(VMTOMO_PICK_VIEW)
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         return format_row_factory(self.execute(sql), none_value=0.0)
 
     def get_vmtomo_shots(self, **kwargs):
@@ -547,8 +542,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         sql = 'SELECT * FROM {:}'.format(VMTOMO_SHOT_VIEW)
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         return format_row_factory(self.execute(sql), none_value=0.0)
 
     def get_vmtomo_inst(self, **kwargs):
@@ -560,8 +554,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         sql = 'SELECT * FROM {:}'.format(VMTOMO_INSTRUMENT_VIEW)
         if len(kwargs) > 0:
-            sql += " WHERE " + ' and '.join(['%s="%s"' %(k, kwargs[k])\
-                                            for k in kwargs])
+            sql += " WHERE " + format_search(kwargs)
         return format_row_factory(self.execute(sql), none_value=0.0)
 
     events = property(_get_events)

@@ -77,6 +77,11 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     # Raytrace each instrument
     inst = pickdb.get_ensembles(**kwargs)
     ninst = len(inst)
+    if ninst == 0:
+        print "No picks found to raytrace that match the search citeria:"
+        print kwargs
+        return
+    print 'Raytracing paths to {:} receiver(s)...'.format(ninst)
     if os.path.isfile(rayfile):
         os.remove(rayfile)
     start_all = time.clock()

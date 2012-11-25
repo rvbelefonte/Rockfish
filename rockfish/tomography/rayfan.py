@@ -82,10 +82,10 @@ class RayfanGroup(object):
             self.FORMAT = 1
         # Read the individual rayfans
         self.rayfans = []
-        print n
         for i in range(0, n):
             self.rayfans.append(Rayfan(file, endian=endian,
                                        rayfan_version=self.FORMAT))
+        print "Read {:} rayfans.".format(n)
 
     def plot_raypaths(self, dim=[0,2], ax=None, receivers=True, 
                       sources=True, outfile=None):

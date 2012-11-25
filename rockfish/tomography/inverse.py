@@ -17,23 +17,22 @@ USE_HEADWAVES_IN_FRECHET_DERIVATIVES = True
 USE_COMBINATION_SMOOTHNESS = True
 
 def invert(input_vmfile, rayfile, output_vmfile,
-           target_chi_squared=1.0, damping=1,
-           first_derivative_smoothing=1, second_derivative_smoothing=5,
+           target_chi_squared=1.0, damping=0.1,
+           first_derivative_smoothing=0.1, second_derivative_smoothing=0.5,
            ngrid=None, dz0=None, zuniform=None,
            slowness_scale=0.02, slowness_jump_scale=0.005,
            reflector_depth_scale=2.0,
            top_layer=0, bottom_layer=None,
            station_correction=True,
-           station_correction_scale=0.04, station_correction_weight=500,
+           station_correction_scale=0.04, station_correction_weight=0.0,
            station_correction_file='station_statics.dat',
            headwaves=True, strict_layers=True, extrapolate_grid=True,
-           ray_skip_interval=1, horizontal_ray_extension=20,
-           vertical_ray_extension=5, slowness_reference_scale=0.2,
+           ray_skip_interval=1, horizontal_ray_extension=1,
+           vertical_ray_extension=0.2, slowness_reference_scale=0.2,
            vscale_pow=2, matrix_terms=2, penalty_terms=2,
            reflector_depth_weight=0.5, slowness_jump_weight=10,
-           aspect_ratio=2.0,
+           aspect_ratio=1.0,
            diagnostic_directory='inverse'):
-    # TODO update param docs with new defaults, once they are OK
     """
     Wrapper for running the VM Tomography inversion program.
 
@@ -140,6 +139,7 @@ def invert(input_vmfile, rayfile, output_vmfile,
     inz_file = diagnostic_directory + os.path.sep + 'inz.dat'
     anz_file = diagnostic_directory + os.path.sep + 'anz.dat'
     sol_file = diagnostic_directory + os.path.sep + 'sol.dat'
+    vecm_file = diagnostic_directory + os.path.sep + 'vecm.bin'
     # Build run script
     sh = '#!/bin/bash\n'
     sh += '#\n'
@@ -188,12 +188,8 @@ def invert(input_vmfile, rayfile, output_vmfile,
     sh += 'eof'
     # Run the script
     subprocess.call(sh, shell=True)
-
-def plot_grid_dws(dwsfile):
-    """
-    Plot the derivative-weight sum (DWS) for the model slowness grid.
-
-    :param dwsfile: ASCII file with the collums x, y, z, dws.
-    """
+    # Clean up hard-coded files
+    if os.path.isfile('vecm.bin'):
+        os.rename('vecm.bin', vecm_file) 
 
 
