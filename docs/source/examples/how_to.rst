@@ -19,6 +19,12 @@ Plotting
 
 :ref:`record_section` -- *Plot SEG-Y record sections.*
 
+Tomography
+----------
+
+:ref:`velocity_model` -- *Build a velocity model.*
+
+:ref:`raytracing` -- *Raytrace a velocity model.*
 
 Documentation Templates
 -----------------------

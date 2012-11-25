@@ -55,7 +55,7 @@ pickdb_file = 'synthetic.sqlite'
 pickdb = rayfan2pickdb(rayfile, pickdb_file, mode='traced', noise=0.02)
 
 # Raytrace with the new pick database
-raytrace(vmfile, pickdb, rayfile)
+#raytrace(vmfile, pickdb, rayfile)
 
 # Plot the traced rays
 fig = plt.figure()
@@ -67,5 +67,3 @@ ax = fig.add_subplot(212)
 rays.plot_traveltimes(ax=ax)
 plt.xlim((vm.r1[0], vm.r2[0]))
 plt.show()
-
-

@@ -639,7 +639,7 @@ class VM(object):
         :param x: list of x coordinates in the model 
         :returns: list of nearest x index for the given coordinates
         """
-        return [int((_x-self.r1[2])/self.dx) for _x in x]
+        return [int((_x-self.r1[0])/self.dx) for _x in x]
 
     def xrange2i(self, xmin=None, xmax=None):
         """
@@ -664,7 +664,7 @@ class VM(object):
         :param y: list of y coordinates in the model 
         :returns: list of nearest y index for the given coordinates
         """
-        return [int((_y-self.r1[2])/self.dy) for _y in y]   
+        return [int((_y-self.r1[1])/self.dy) for _y in y]   
 
     def yrange2i(self, ymin=None, ymax=None):
         """
@@ -721,76 +721,49 @@ class VM(object):
         z = iz*self.dz + self.r1[2]
         return x,y,z
 
-    def slice_along_xy_line(self, x, y, dx=None):
+    def slice_xy(self, x, y, dx=None):
         """
         Extract a vertical slice along a line.
 
         :param x,y: Lists of coordinates to take slice along.
         :param dx: Grid spacing for the new model. Default is to use
             the x-coordinate spacing of the current model.
-        :returns: VM model along the specified line
+        :returns: :class:`rockfish.tomography.model.VM` instance 
+            along the specified line
         """
         assert len(x) == len(y), 'x and y must be the same length'
         assert max(x) <= self.r2[0], 'x coordinates exceed model domain'
         assert min(x) >= self.r1[0], 'x coordinates exceed model domain'
         assert max(y) <= self.r2[1], 'y coordinates exceed model domain'
-        assert min(y) > self.r1[1], 'y coordinates exceed model domain'
-        # Calculate distance along line
+        assert min(y) >= self.r1[1], 'y coordinates exceed model domain'
+         # Calculate distance along line
         _xline = [0]
         for i in range(1,len(x)):
-            x0 = x[i-1]
-            y0 = y[i-1]
-            x1 = x[i]
-            y1 = y[i]
-            deltx = np.sqrt((x1-x0)**2 + (y1-y0)**2)
+            deltx = np.sqrt((x[i]-x[i-1])**2 + (y[i]-y[i-1])**2)
             _xline.append(_xline[i-1] + deltx)
-        # Setup new model
-        vm = VM()
-        vm.r1 = (min(_xline), 0, self.r1[2])
-        vm.r2 = (max(_xline), 0, self.r2[2])
+        # Setup a new model
         if dx is None:
-            vm.dx = self.dx
-        else:
-            vm.dx = dx
-        vm.nx = int(np.floor((max(_xline) - min(_xline))/vm.dx))
-        xline = np.linspace(min(_xline), max(_xline), vm.nx)
-        vm.dy = 1
-        vm.dz = self.dz
-        vm.ny = 1
-        vm.nz = self.nz
-        vm.nr = self.nr
-        if hasattr(self, 'dws_sl'):
-            vm.dws_sl = []
-        # Pull slowness grid and interface values along line
+            dx = self.dx
+        vm = VM(r1=(0, 0, self.r1[2]), r2=(_xline[-1], 0, self.r2[2]),
+                dx=dx, dy=1, dz=self.dz, nr=self.nr)
+        # Interpolate model
         interp_y = interp1d(x, y)
         interp_x = interp1d(_xline, x)
-        for iref in range(0, self.nr):
-            vm.rf.append([])
-            vm.jp.append([])
-            vm.ir.append([])
-            vm.ij.append([])
-        for _xl in xline:
+        for _xl in _xline:
             # get coordinates of position on line
             _x = interp_x(_xl)
             _y = interp_y(_x)
             # get indices in 3D model
-            ix = self._x2i(_x)
-            iy = self._y2i(_y)
+            ix, = self.x2i([_x])
+            iy, = self.y2i([_y])
             # get slowness collumn
-            vm.sl.append([self.sl[ix][iy]])
-            # DWS grid
-            if hasattr(self, 'dws_sl'):
-                vm.dws_sl.append([self.dws_sl[ix][iy]])
+            vm.sl[ix][iy][:] = self.sl[ix][iy][:]
             # get interfaces
             for iref in range(0, self.nr):
-                vm.rf[iref].append([self.rf[iref][ix][iy]])
-                vm.jp[iref].append([self.jp[iref][ix][iy]])
-                vm.ir[iref].append([self.ir[iref][ix][iy]])
-                vm.ij[iref].append([self.ij[iref][ix][iy]])
-        vm.rf = np.asarray(vm.rf)
-        vm.jp = np.asarray(vm.jp)
-        vm.ir = np.asarray(vm.ir)
-        vm.ij = np.asarray(vm.ij)
+                vm.rf[iref] = [self.rf[iref][ix][iy]]
+                vm.jp[iref] = [self.jp[iref][ix][iy]]
+                vm.ir[iref] = [self.ir[iref][ix][iy]]
+                vm.ij[iref] = [self.ij[iref][ix][iy]]
         return vm
 
     def remove_interface(self, idx):
@@ -850,26 +823,9 @@ class VM(object):
             self.ij = np.insert(self.ij, iref, ij, 0)
         print "Added interface with index {:}.".format(iref)
 
-# XXX leave this here until we decide if we need it
-#    def get_layer_designations(self):
-#        """
-#        Finds the layer designation for each node in the slowness grid.
-#        """
-#        flag = -999
-#        self.layer = np.ones(self.sl.shape)*flag
-#
-#        #XXX in progress...
-#        
-#        nmissed = (self.layer==flag).sum()
-#        if nmissed > 0:
-#            msg = '{:} of {:} grid nodes not assigned to a layer'\
-#                    .format(nmissed, self.sl.size)
-#            warnings.warn(msg)
-#        # XXX dev!
-#        raise NotImplementedError
-
     def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
-             ij=True, apply_jumps=True, outfile=None):
+             ij=True, apply_jumps=True, xlim=None, zlim=None, aspect=3,
+             outfile=None):
         """
         Plot the velocity grid and reflectors.
 
@@ -879,12 +835,17 @@ class VM(object):
             of velocity or slowness. Default is to plot velocity.
         :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create a new figure and axes. 
-        :param rf: Plot a thin white line for each reflector. Default is
+        :param rf: Plot a thin black line for each reflector. Default is
             ``True``.
         :param ir: Plot bold white line for portion of reflector depths
             that are active in the inversion (i.e., ir>0). Default is ``True``.
         :param ij: Plot bold white line for portion of reflector slowness jumps
             that are active in the inversion (i.e., ij>0). Default is ``True``.
+        :param xlim: Tuple of (xmin, xmax) for distance along the line to plot.
+            Default is to plot the entire line.
+        :param zlim: Tuple of (zmin, zmax) for the depths to plot. Default is to
+            plot all depths.
+        :param aspect: Aspect ratio of the plot. Default is ``3``.
         :param apply_jumps: Determines whether or not to apply slowness jumps to
             the grid before plotting. Default is ``True``.
         :param outfile: Output file string. Also used to automatically
@@ -894,14 +855,19 @@ class VM(object):
         """
         # Pull slice from model if not already 2D
         if (x is None) and (y is None):
-            vm = self
+            if self.ny == 1:
+                vm = self
+            else:
+                vm = self.slice_xy(x=self.x, y=self.r1[1]*np.ones(self.nx),
+                                   dx=self.dx)
         else:
-            vm = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+            vm = self.slice_xy(x=x, y=y, dx=min(self.dx, self.dy))
         # Apply jumps
         if apply_jumps:
             vm.apply_jumps()
         # Plot the slice
-        vm._plot2d(velocity=velocity, ax=ax, rf=rf, ir=ir, ij=ij, outfile=outfile)
+        vm._plot2d(velocity=velocity, ax=ax, rf=rf, ir=ir, ij=ij, aspect=aspect,
+                   xlim=xlim, zlim=zlim, outfile=outfile)
         # remove the jumps
         if apply_jumps:
             vm.remove_jumps()
@@ -929,6 +895,16 @@ class VM(object):
             matplotlib backend. Most backends support png, pdf, ps, eps and
             svg. Defaults is ``None``.
         """
+        # Pull slice from model if not already 2D
+        if (x is None) and (y is None):
+            if self.ny == 1:
+                vm = self
+            else:
+                vm = self.slice_xy(x=self.x, y=self.r1[1]*np.ones(self.nx),
+                                   dx=self.dx)
+        else:
+            vm = self.slice_xy(x=x, y=y, dx=min(self.dx, self.dy))
+        # Plot
         fig = plt.figure()
         ax = fig.add_subplot(211)
         self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=False)
@@ -963,16 +939,20 @@ class VM(object):
         """
         # Pull slice from model if not already 2D
         if (x is None) and (y is None):
-            vm = self
+            if self.ny == 1:
+                vm = self
+            else:
+                vm = self.slice_xy(x=self.x, y=self.r1[1]*np.ones(self.nx),
+                                   dx=self.dx)
         else:
-            vm = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+            vm = self.slice_xy(x=x, y=y, dx=min(self.dx, self.dy))
         # Plot the slice
         grid = np.asarray([v[0] for v in self.layers])
         vm._plot2d(velocity=False, ax=ax, rf=rf, ir=ir, ij=ij, grid=grid,
                    outfile=outfile)
 
     def _plot2d(self, velocity=True, ax=None, rf=True, ir=True, ij=True, grid=None,
-                outfile=None):
+                aspect=3, xlim=None, zlim=None, outfile=None):
         """
         Plot a 2D model.
 
@@ -980,7 +960,7 @@ class VM(object):
             of velocity or slowness. Default is to plot velocity.
         :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create a new figure and axes.
-        :param rf: Plot a thin white line for each reflector. Default is
+        :param rf: Plot a thin black line for each reflector. Default is
             ``True``.
         :param ir: Plot bold white line for portion of reflector depths
             that are active in the inversion (i.e., ir>0). Default is ``True``.
@@ -988,6 +968,11 @@ class VM(object):
             that are active in the inversion (i.e., ij>0). Default is ``True``.
         :param grid: Grid to plot as base plot. Default is to plot slowness or
             velocity from ``self.sl``.
+        :param aspect: Aspect ratio of the plot. Default is ``3``.
+        :param xlim: Tuple of (xmin, xmax) for the plot. Default is to plot the
+            entire x domain.
+        :param zlim: Tuple of (zmin, zmax) for the plot. Default is to plot the
+            entire z domain.
         :param outfile: Output file string. Also used to automatically
             determine the output format. Supported file formats depend on your
             matplotlib backend. Most backends support png, pdf, ps, eps and
@@ -1008,17 +993,25 @@ class VM(object):
                                             self.r1[2]))
         for iref in range(0, self.nr):
             if rf:
-                ax.plot(self.x, self.rf[iref], '-w')
+                ax.plot(self.x, self.rf[iref], '-k')
             if ir:
                 idx = np.nonzero(self.ir[iref].flatten()>0)
                 ax.plot(self.x[idx], self.rf[iref][idx], '-w', linewidth=5)
             if ij:
                 idx = np.nonzero(self.ij[iref].flatten()>0)
                 ax.plot(self.x[idx], self.rf[iref][idx], '-k', linewidth=3)
-        plt.xlim(self.r1[0], self.r2[0])
-        plt.ylim(self.r2[2], self.r1[2])
+        ax.set_aspect(aspect)
+        if xlim is None:
+            plt.xlim(self.r1[0], self.r2[0])
+        else:
+            plt.xlim(xlim)
+        if zlim is None:
+            plt.ylim(self.r2[2], self.r1[2])
+        else:
+            plt.ylim(zlim)
         plt.xlabel('Offset (km)')
         plt.ylabel('Depth (km)')
+        plt.tight_layout()
         if outfile:
             fig.savefig(outfile)
         elif show:
@@ -1052,7 +1045,7 @@ class VM(object):
         if (x is None) and (y is None):
             vm = self
         else:
-            vm = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+            vm = slice_xy(x=x, y=y, dx=min(self.dx, self.dy))
         # Plot the slice
         vm._plot2d(velocity=False, ax=ax, grid=np.log10(self.dws_sl),
                    outfile=outfile)
