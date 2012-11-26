@@ -229,14 +229,41 @@ class VM(object):
         self.define_stretched_layer_velocities(idx, [v], xmin=xmin, xmax=xmax,
                                               ymin=ymin, ymax=ymax)
 
-    def define_layer_velocity_gradient(self, idx, dvdz, v0=None, xmin=None,
+    def define_variable_layer_gradient(self, idx, dvdz, v0=None):
+        """
+        Replace velocities within a layer by defining a gtradient that
+        varies linearly in the horizontal directions.
+        
+        :param idx: Index of layer to work on.
+        :param dvdz: List of velocity gradient values. Must be of shape
+            (nx,ny).
+        :param v0: List of velocities at the top of the layer. Must be of 
+            shape (nx,ny). Default is to use the value at the 
+            base of the overlying layer.
+        """
+        z0, z1 = self.get_layer_bounds(idx)
+        for ix in range(0, self.nx):
+            for iy in range(0, self.ny):
+                iz0, iz1 = self.z2i((z0[ix,iy], z1[ix,iy]))
+                iz1 += 1
+                z = self.z[iz0:iz1] - self.z[iz0]
+                if v0 is None:
+                    if iz0 == 0:
+                        _v0 = 0.
+                    else:
+                        _v0 = 1./self.sl[ix, iy, iz0-1]
+                else:
+                    _v0 = v0[ix,iy] 
+                self.sl[ix, iy, iz0:iz1] = 1./(_v0 + z*dvdz[ix,iy])
+
+    def define_constant_layer_gradient(self, idx, dvdz, v0=None, xmin=None,
                                        xmax=None, ymin=None, ymax=None):
         """
-        Replace velocities within a layer by defining a gradient.
+        Replace velocities within a layer by defining a constant gradient.
 
         :param idx: Index of layer to work on.
         :param dvdz: Velocity gradient.
-        :param v0: Velocity at top of layer. Default is to use the
+        :param v0:  Velocity at the top of the layer. Default is to use the
             value at the base of the overlying layer.
         :param xmin, xmax: Set the x-coordinate limits for modifying
             velocities. Default is to change velocities over the entire

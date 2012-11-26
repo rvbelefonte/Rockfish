@@ -46,6 +46,12 @@ class RayfanGroup(object):
         self.file = None
         self.rayfans = []
 
+    def __str__(self):
+        """
+        Print a summary of the rayfan.
+        """
+        return "Chi^2 = {:}, rms = {:}".format(self.chi2, self.rms)
+
     def read(self, file, endian='@'):
         """
         Read rayfan data from a rayfan file.
@@ -92,8 +98,8 @@ class RayfanGroup(object):
         """
         Plot all raypaths.
 
-        :param dim: Coordinate dimensions to plot paths into. Default is z vs. x
-            (``dim=[0,2]``).
+        :param dim: Coordinate dimensions to plot paths into. Default is z 
+            vs. x (``dim=[0,2]``).
         :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create a new figure and axes.
         :param receivers: Determines whether or not to plot symbols at
@@ -137,8 +143,8 @@ class RayfanGroup(object):
         """
         Plot traveltimes in the rayfan.
 
-        :param dim: Coordinate dimensions to plot paths into. Default is z vs. x
-            (``dim=[0,2]``).
+        :param dim: Coordinate dimensions to plot paths into. Default is z 
+            vs. x (``dim=[0,2]``).
         :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create a new figure and axes.
         :param outfile: Output file string. Also used to automatically
@@ -167,11 +173,26 @@ class RayfanGroup(object):
         else:
             plt.show()
 
+    def _calc_mean_rms(self):
+        """
+        Calculate mean RMS of all rayfans.
+        """
+        return np.mean([rfn.rms for rfn in self.rayfans])
+    rms = property(fget=_calc_mean_rms)
+
+    def _calc_mean_chi2(self):
+        """
+        Calculate mean Chi-squared value for all rayfans.
+        """
+        return np.mean([rfn.chi2_mean for rfn in self.rayfans])
+    chi2 = property(fget=_calc_mean_chi2)
+
 class Rayfan(object):
     """
     Class for working with a single rayfan.
     """
-    def __init__(self, file, endian='@', rayfan_version=DEFAULT_RAYFAN_VERSION):
+    def __init__(self, file, endian='@', 
+                 rayfan_version=DEFAULT_RAYFAN_VERSION):
         """
         Class for handling an individual rayfan.
 
@@ -199,12 +220,12 @@ class Rayfan(object):
         # read the rayfan header information
         fmt = '{:}i'.format(endian)
         self.start_point_id = unpack(fmt, file.read(4))[0]
-        nrays = unpack(fmt, file.read(4))[0]
+        self.nrays = unpack(fmt, file.read(4))[0]
         nsize = unpack(fmt, file.read(4))[0]
         # make sure the expected amount of data exist
         pos = file.tell()
         data_left = filesize - pos
-        data_needed = 7*nrays + 3*nsize
+        data_needed = 7*self.nrays + 3*nsize
         if data_needed > data_left or data_needed < 0:
             msg = '''
                   Too little data in the file left to unpack. This is most
@@ -218,19 +239,19 @@ class Rayfan(object):
         else:
             self.static_correction = 0.
         # ID arrays and sizes
-        fmt = '{:}'.format(endian) + 'i'*nrays
-        self.end_point_ids = unpack(fmt, file.read(4*nrays))
-        self.event_ids = unpack(fmt, file.read(4*nrays))
-        self.event_subids = unpack(fmt, file.read(4*nrays))
-        lens = unpack(fmt, file.read(4*nrays)) # raypath length
+        fmt = '{:}'.format(endian) + 'i'*self.nrays
+        self.end_point_ids = unpack(fmt, file.read(4*self.nrays))
+        self.event_ids = unpack(fmt, file.read(4*self.nrays))
+        self.event_subids = unpack(fmt, file.read(4*self.nrays))
+        lens = unpack(fmt, file.read(4*self.nrays)) # raypath length
         # Picks, travel-times, and errors
-        fmt = '{:}'.format(endian) + 'f'*nrays
-        self.pick_times = unpack(fmt, file.read(4*nrays))
-        self.travel_times = unpack(fmt, file.read(4*nrays))
-        self.pick_errors = unpack(fmt, file.read(4*nrays))
+        fmt = '{:}'.format(endian) + 'f'*self.nrays
+        self.pick_times = unpack(fmt, file.read(4*self.nrays))
+        self.travel_times = unpack(fmt, file.read(4*self.nrays))
+        self.pick_errors = unpack(fmt, file.read(4*self.nrays))
         # Actual ray path coordinates
         self.paths = [] 
-        for i in range(0, nrays):
+        for i in range(0, self.nrays):
             fmt = '{:}'.format(endian) + 'f'*3*lens[i]
             self.paths.append(np.reshape(
                 unpack(fmt,file.read(4*3*lens[i])),
@@ -242,6 +263,35 @@ class Rayfan(object):
                 self.endpoints.append(path[0])
             else:
                 self.endpoints.append([None, None, None])
+
+    def _calc_residuals(self):
+        """
+        Calculate residuals.
+        """
+        return np.asarray(self.pick_times) - np.asarray(self.travel_times) \
+            + self.static_correction
+    residuals = property(fget=_calc_residuals)
+
+    def _calc_rms(self):
+        """
+        Calculate the RMS of travel-time residuals.
+        """
+        return np.sqrt(np.sum(self.residuals**2)/self.nrays)
+    rms = property(fget=_calc_rms)
+
+    def _calc_chi2(self):
+        """
+        Calculate the Chi-squared value.
+        """
+        return (self.residuals/self.pick_errors)**2
+    chi2 = property(fget=_calc_chi2)
+
+    def _calc_mean_chi2(self):
+        """
+        Calculate the mean Chi-squared value.
+        """
+        return np.sum(self.chi2)/self.nrays
+    chi2_mean = property(fget=_calc_mean_chi2)
 
 def readRayfanGroup(file, endian=ENDIAN):
     """
@@ -265,10 +315,10 @@ def rayfan2pickdb(rayfan_file, pickdb_file, mode='picks', noise=None):
         assumed to be a filename of a rayfan binary file.
     :param pickdb_file: The filename of the pick database.
     :param mode: Type of travel times to store in the database, select from
-        ``'picks'`` (travel-time observations) or ``'traced'`` (predicted travel
-        times). Default is ``'picks'``.
-    :param noise: Amplitude of random noise to add the travel times. Default is
-        to not add any noise.
+        ``'picks'`` (travel-time observations) or ``'traced'`` (predicted 
+        travel times). Default is ``'picks'``.
+    :param noise: Amplitude of random noise to add the travel times. Default
+        is to not add any noise.
     """
     pickdb = PickDatabaseConnection(pickdb_file)
     rays = readRayfanGroup(rayfan_file)
