@@ -213,6 +213,25 @@ class VM(object):
                     v = zv(z)
                 self.sl[ix, iy, iz0:iz1] = 1./v
 
+    def insert_layer_velocities(self, idx, vel, is_slowness=False):
+        """
+        Insert a grid of velocities for a single layer.
+        
+        :param idx: Index of layer to work on.
+        :param vel: :class:`numpy.ndarray` with shape (nx, ny, nz) containing
+            velocities to insert.
+        :param is_slowness: Determines whether ``vel`` contains velocities
+            (default) or slowness values.
+            
+        """
+        assert vel.shape == (self.nx, self.ny, self.nz),\
+                'vel must be of shape (nx, ny, nz)'
+        isl = np.nonzero(self.layers == idx)
+        if is_slowness:
+            self.sl[isl] = vel[isl]
+        else:
+            self.sl[isl] = 1./vel[isl]
+
     def define_constant_layer_velocity(self, idx, v, xmin=None,
                                           xmax=None, ymin=None, ymax=None):
         """
@@ -635,8 +654,10 @@ class VM(object):
             # setup interpolators
             x2rf = interp1d(vm0.x, [v[0] for v in vm0.rf[iref]], kind='linear')
             x2jp = interp1d(vm0.x, [v[0] for v in vm0.jp[iref]], kind='linear')
-            x2ir = interp1d(vm0.x, [v[0] for v in vm0.ir[iref]], kind='nearest')
-            x2ij = interp1d(vm0.x, [v[0] for v in vm0.ij[iref]], kind='nearest')
+            x2ir = interp1d(vm0.x, [v[0] for v in vm0.ir[iref]],
+                            kind='nearest')
+            x2ij = interp1d(vm0.x, [v[0] for v in vm0.ij[iref]],
+                            kind='nearest')
             # do the interpolating
             vm1.rf[iref] = np.asarray([[v] for v in x2rf(x0)])
             vm1.jp[iref] = np.asarray([[v] for v in x2jp(x0)])
@@ -645,7 +666,13 @@ class VM(object):
         # Project velocities
         for iz in range(0, vm0.nz):
             x2sl = interp1d(vm0.x, vm0.sl[:,0,iz], kind='linear')
-            vm1.sl[:,0,iz] = x2sl(x0)
+            sl = x2sl(x0)
+            vm1.sl[:,0,iz] = sl
+        nbogus = len(np.nonzero(vm1.sl < 0))
+        if nbogus > 0:
+            msg = 'Interpolation of slowness resulted in {:}'.format(nbogus)
+            msg += ' nodes with negative values.'
+            warnings.warn(msg)
         return vm1
 
     def _unpack_arrays(self, nx, ny, nz, nr):
