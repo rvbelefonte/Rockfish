@@ -22,6 +22,7 @@ import datetime
 from struct import unpack
 import matplotlib.pyplot as plt
 from rockfish import __version__
+from rockfish.utils.string_tools import pad_string
 from rockfish.segy.segy import SEGYFile, SEGYTrace
 from rockfish.segy.segy import pack
 
@@ -63,7 +64,7 @@ class VM(object):
         """
         if (title is None) and hasattr(self, 'file'):
             title = os.path.basename(self.file.name)
-        banner = self._pad_line(title, char='=') 
+        banner = self.pad_string(title, char='=') 
         sng = banner + '\n'
         sng += self._print_header()
         sng += banner
@@ -319,9 +320,9 @@ class VM(object):
             the size of the interface arrays.
         """
         # Calculate grid sizes
-        nx = int((r2[0] - r1[0])/dx) + 1
-        ny = int((r2[1] - r1[1])/dy) + 1
-        nz = int((r2[2] - r1[2])/dz) + 1
+        nx = int(np.round((r2[0] - r1[0])/dx)) + 1
+        ny = int(np.round((r2[1] - r1[1])/dy)) + 1
+        nz = int(np.round((r2[2] - r1[2])/dz)) + 1
         # Copy variables
         self.r1 = r1
         self.dx = dx 
@@ -603,6 +604,53 @@ class VM(object):
                 segy.traces.append(tr)
         return segy
 
+    def project_model(self, angle, dx=None, x=None, y=None):
+        """
+        Project a 2D model onto another line.
+
+        :param angle: Clockwise angle in degrees from the current line.
+        :param dx: x-coordinate grid spacing. Default is to use the same grid
+            spacing as in the current model.
+        :param x,y: Coordinate values of 2D slice to project. Default is to project 
+            the first x-z plane in the model.
+        :returns: :class:`rockfish.tomography.model.VM` model along the new
+            line.
+        """
+        # Pull slice from model if not already 2D
+        if (x is None) and (y is None):
+            vm0 = self
+        else:
+            vm0 = slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
+        # Create new model
+        if dx is None:
+            dx = vm0.dx
+        xdim = (vm0.r2[0] - vm0.r1[0])/np.cos(np.deg2rad(angle))
+        xmax = np.floor(xdim/dx)*dx
+        print "xmax = ",xmax
+        vm1 = VM(r1=(0, 0, vm0.r1[2]), r2=(xmax, 0, vm0.r2[2]),
+                 dx=dx, dy=1, dz=vm0.dz, nr=vm0.nr)
+        print vm1.r2, vm1.x.max()
+        # New model coordinates in old model
+        x0 = vm1.x*np.cos(np.deg2rad(angle))
+        print x0.max()
+        # Project boundaries
+        for iref in range(0, vm0.nr):
+            # setup interpolators
+            x2rf = interp1d(vm0.x, [v[0] for v in vm0.rf[iref]], kind='linear')
+            x2jp = interp1d(vm0.x, [v[0] for v in vm0.jp[iref]], kind='linear')
+            x2ir = interp1d(vm0.x, [v[0] for v in vm0.ir[iref]], kind='nearest')
+            x2ij = interp1d(vm0.x, [v[0] for v in vm0.ij[iref]], kind='nearest')
+            # do the interpolating
+            vm1.rf[iref] = np.asarray([[v] for v in x2rf(x0)])
+            vm1.jp[iref] = np.asarray([[v] for v in x2jp(x0)])
+            vm1.ir[iref] = np.asarray([[v] for v in x2ir(x0)])
+            vm1.ij[iref] = np.asarray([[v] for v in x2ij(x0)])
+        # Project velocities
+        for iz in range(0, vm0.nz):
+            x2sl = interp1d(vm0.x, vm0.sl[:,0,iz], kind='linear')
+            vm1.sl[:,0,iz] = x2sl(x0)
+        return vm1
+
     def _unpack_arrays(self, nx, ny, nz, nr):
         """
         Rearrange the 1D model arrays into 3D matrices (stacked arrays)
@@ -876,24 +924,6 @@ class VM(object):
             self.ir = np.insert(self.ir, iref, ir, 0)
             self.ij = np.insert(self.ij, iref, ij, 0)
         print "Added interface with index {:}.".format(iref)
-
-# XXX leave this here until we decide if we need it
-#    def get_layer_designations(self):
-#        """
-#        Finds the layer designation for each node in the slowness grid.
-#        """
-#        flag = -999
-#        self.layer = np.ones(self.sl.shape)*flag
-#
-#        #XXX in progress...
-#        
-#        nmissed = (self.layer==flag).sum()
-#        if nmissed > 0:
-#            msg = '{:} of {:} grid nodes not assigned to a layer'\
-#                    .format(nmissed, self.sl.size)
-#            warnings.warn(msg)
-#        # XXX dev!
-#        raise NotImplementedError
 
     def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
              ij=True, apply_jumps=True, colorbar=False, vmin=None, 
@@ -1256,17 +1286,6 @@ class VM(object):
         extents = (self.r1[dims[0]], self.r2[dims[0]],
                    self.r1[dims[1]], self.r2[dims[1]])
         return sl, bounds, extents, labels
-
-    def _pad_line(self, msg, char=' ', width=78):
-        """
-        Center a string in a fixed-width line.
-
-        :param char: Character to fill the pad with. Default is 
-            ``' '``.
-        :param width:  Width of the line. Default is 78.
-        """
-        npad = (width - len(msg))/2
-        return char*npad + msg + char*npad
 
     # Properties
     def _get_nr(self):

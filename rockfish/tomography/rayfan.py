@@ -50,7 +50,10 @@ class RayfanGroup(object):
         """
         Print a summary of the rayfan.
         """
-        return "Chi^2 = {:}, rms = {:}".format(self.chi2, self.rms)
+        sng = '{:}:'.format(os.path.basename(self.file.name))
+        sng += ' nrayfans = {:},'.format(len(self.rayfans))
+        sng += ' Chi^2 = {:}, rms = {:}'.format(self.chi2, self.rms)
+        return sng
 
     def read(self, file, endian='@'):
         """
@@ -91,7 +94,6 @@ class RayfanGroup(object):
         for i in range(0, n):
             self.rayfans.append(Rayfan(file, endian=endian,
                                        rayfan_version=self.FORMAT))
-        print "Read {:} rayfans.".format(n)
 
     def plot_raypaths(self, dim=[0,2], ax=None, receivers=True, 
                       sources=True, outfile=None):

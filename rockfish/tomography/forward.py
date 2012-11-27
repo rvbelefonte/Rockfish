@@ -93,10 +93,10 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
             irayfile_exists = 1
         recx, recy, recz = pickdb.get_vmtomo_instrument_position(_inst)
         # Build input
-        print '='*80
+        #print '='*80
         print ' Tracing rays for receiver #{:} ({:} of {:})'\
                 .format(_inst, i+1, ninst)
-        print '='*80
+        #print '='*80
         sh = '#!/bin/bash\n'
         sh += '#\n'
         sh += '{:} << eof\n'.format(RAYTR_PROGRAM)
@@ -134,11 +134,11 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
             msg = 'Did not appear to trace rays for receiver #{:}'\
                     .format(_inst)
             warnings.warn(msg)
-        print '*'*80
-        print ' Completed raytracing for receiver #{:} in {:} seconds.'\
+        #print '*'*80
+        print 'Completed raytracing for receiver #{:} in {:} seconds.'\
             .format(_inst, elapsed)
-        print '*'*80
-    print '/'*80
+        #print '*'*80
+    #print '/'*80
     print 'Completed raytracing for all recievers in {:} seconds.'\
             .format(time.clock() - start_all)
     if os.path.isfile(rayfile):
@@ -146,4 +146,4 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     else:
         msg = 'Did not create a rayfile.'
         warnings.warn(msg)
-    print '/'*80
+    #print '/'*80
