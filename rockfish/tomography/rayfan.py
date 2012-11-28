@@ -2,6 +2,7 @@
 Support for working with VM Tomography binary rayfan files.
 """
 import os
+import warnings
 from struct import unpack
 import matplotlib.pyplot as plt
 from rockfish.segy.segy import pack
@@ -141,39 +142,126 @@ class RayfanGroup(object):
         else:
             plt.show()
 
-    def plot_traveltimes(self, dim=[0,2], ax=None, outfile=None):
+    def plot_time_vs_position(self, end='source', dimension='x',
+                              traced=True, predicted=True,
+                              ax=None, outfile=None):
         """
-        Plot traveltimes in the rayfan.
+        Plot traveltimes in the rayfan vs. position.
 
-        :param dim: Coordinate dimensions to plot paths into. Default is z 
-            vs. x (``dim=[0,2]``).
+        :param end: Specifies which end of the raypath to plot as on the
+            abscissa.  Options are: 'source' (default) or 'receiver'.
+        :param dimension: Specifies which dimension of the raypath end to plot
+            on the abscissa. Options are: 'x' (default), 'y', or 'z'.
         :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create a new figure and axes.
         :param outfile: Output file string. Also used to automatically
             determine the output format. Supported file formats depend on your
             matplotlib backend. Most backends support png, pdf, ps, eps and
-            svg. Defaults is ``None``.
+            svg. Default is ``None``.
         """
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            reverse = True
-            show = True
-        else:
-            show = False
+        end_opts = {'source':0, 'receiver':-1}
+        dim_opts = {'x':0, 'y':1, 'z':2}
+        iend = end_opts[end]
+        idim = dim_opts[dimension]
         for rfn in self.rayfans:
-            x = [p[0] for p in rfn.endpoints]
+            x = [p[iend][idim] for p in rfn.paths]
             # pick times
             ax.errorbar(x, rfn.pick_times, yerr=rfn.pick_errors,
                         fmt='r.', markersize=0, capsize=0)
             # calculated times
             ax.plot(x, rfn.travel_times, '.k', markersize=5)
-        plt.xlabel('Source Position (km)')
+        plt.xlabel('{:} {:} (km)'.format(end, dimension))
         plt.ylabel('t (s)')
         if outfile:
             fig.savefig(outfile)
         else:
             plt.show()
+
+    def plot_residuals_vs_azimuth(self, ax=None, outfile=None, markersize=2):
+        """
+        Plot residuals vs. source-receiver azimuth.
+        
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Default is ``None``.
+        :param markersize: Sets :class:`matplotlib.lines.Line2D` markersize
+            propertry. Default is 2.
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+        for rfn in self.rayfans:
+            ax.scatter(rfn.azimuths, rfn.residuals, c=rfn.offsets,
+                       cmap='hsv', s=markersize, edgecolor=None)
+        plt.xlabel('Azimuth (degrees)')
+        plt.ylabel('Delay Time (s)')
+        plt.xlim(0, 360)
+        if outfile:
+            fig.savefig(outfile)
+        else:
+            plt.show()
+
+    def plot_residuals_vs_offset(self, ax=None, outfile=None, markersize=2):
+        """
+        Plot residuals vs. source-receiver offset.
+        
+        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Default is ``None``.
+        :param markersize: Sets :class:`matplotlib.lines.Line2D` markersize
+            propertry. Default is 2.
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+        for rfn in self.rayfans:
+            #ax.plot(rfn.azimuths, rfn.residuals, '.k', markersize=2)
+            ax.scatter(rfn.offsets, rfn.residuals, c=rfn.azimuths,
+                       cmap='hsv', s=markersize, edgecolor=None)
+        plt.xlabel('Offset (km)')
+        plt.ylabel('Delay Time (s)')
+        plt.xlim(0, 360)
+        if outfile:
+            fig.savefig(outfile)
+        else:
+            plt.show()
+
+    def _get_all_azimuths(self):
+        """
+        Returns a list of all azimuths in the rayfans.
+        """
+        return np.concatenate([rfn.azimuths for rfn in self.rayfans])
+    azimuths = property(fget=_get_all_azimuths)
+    
+    def _get_all_offsets(self):
+        """
+        Returns a list of all azimuths in the rayfans.
+        """
+        return np.concatenate([rfn.offsets for rfn in self.rayfans])
+    offsets = property(fget=_get_all_offsets)
+
+    def _get_all_residuals(self):
+        """
+        Returns a list of all residuals in the rayfans.
+        """
+        return np.concatenate([rfn.residuals for rfn in self.rayfans])
+    residuals = property(fget=_get_all_residuals)
+
+    def _get_nrays(self):
+        """
+        Returns the total number of rays in all rayfans.
+        """
+        return len(self._get_all_offsets())
+    nrays = property(fget=_get_nrays)
 
     def _calc_mean_rms(self):
         """
@@ -266,6 +354,31 @@ class Rayfan(object):
             else:
                 self.endpoints.append([None, None, None])
 
+    def _calc_offsets(self):
+        """
+        Calculate source-reciever offset for each path.
+        """
+        x = np.zeros(len(self.paths))
+        for i, path in enumerate(self.paths):
+            deltx = path[-1][0] - path[0][0] 
+            delty = path[-1][1] - path[0][1]
+            x[i] = np.sqrt(deltx**2 + delty**2)
+        return x
+    offsets = property(fget=_calc_offsets)
+
+    def _calc_azimuths(self):
+        """
+        Calculate source-receiver azimuth for each path.
+        """
+        az = np.zeros(len(self.paths))
+        for i, path in enumerate(self.paths):
+            deltx = path[-1][0] - path[0][0] 
+            delty = path[-1][1] - path[0][1] 
+            az[i] = (90 - np.rad2deg(np.arctan2(delty, deltx)))
+            if az[i] < 0: az[i] += 360.
+        return az
+    azimuths = property(fget=_calc_azimuths)
+
     def _calc_residuals(self):
         """
         Calculate residuals.
@@ -308,7 +421,7 @@ def readRayfanGroup(file, endian=ENDIAN):
     rfn.read(file, endian=endian)
     return rfn
 
-def rayfan2pickdb(rayfan_file, pickdb_file, mode='picks', noise=None):
+def rayfan2pickdb(rayfan_file, pickdb_file, noise=None):
     """
     Read a rayfan file and store its data in a
     :class:`rockfish.picking.database.PickDatabaseConnection`.
@@ -316,48 +429,49 @@ def rayfan2pickdb(rayfan_file, pickdb_file, mode='picks', noise=None):
     :param rayfan_file: An open file-like object or a string which is
         assumed to be a filename of a rayfan binary file.
     :param pickdb_file: The filename of the pick database.
-    :param mode: Type of travel times to store in the database, select from
-        ``'picks'`` (travel-time observations) or ``'traced'`` (predicted 
-        travel times). Default is ``'picks'``.
-    :param noise: Amplitude of random noise to add the travel times. Default
-        is to not add any noise.
+    :param noise: Maximum amplitude of random noise to add the travel times. 
+        Default is to not add any noise.
     """
     pickdb = PickDatabaseConnection(pickdb_file)
     rays = readRayfanGroup(rayfan_file)
+    print "Adding {:} traveltimes to {:} ..."\
+            .format(rays.nrays, pickdb_file)
+    ndb0 = pickdb.execute('SELECT COUNT(rowid) FROM picks').fetchone()[0]
     for rfn in rays.rayfans: 
-        if mode == 'picks':
-            t = rfn.pick_times
-        elif mode == 'traced':
-            t = rfn.travel_times
-        else:
-            raise ValueError("Invalid model '{:}'".format(mode))
-        for i,_t in enumerate(t):
+        for i,_t in enumerate(rfn.travel_times):
             if noise is not None:
-                _t += noise*2*(np.random.random() - 0.5)
-                error = noise
+                _noise = noise*2*(np.random.random() - 0.5)
             else:
-                error = 0.0
+                _noise = 0.0
             sx = rfn.paths[i][0][0]
             sy = rfn.paths[i][0][1]
             rx = rfn.endpoints[i][0]
             ry = rfn.endpoints[i][1]
-            x = np.sqrt((sx-rx)**2 + (sy-ry)**2)
             d = {'event':rfn.event_ids[i],
                  'ensemble':rfn.start_point_id,
                  'vm_branch':rfn.event_ids[i],
                  'vm_subid':rfn.event_subids[i],
                  'trace':rfn.end_point_ids[i],
-                 'time':_t,
-                 'time_reduced':_t,
-                 'error':error,
+                 'time':rfn.pick_times[i] + _noise,
+                 'time_reduced':rfn.pick_times[i] + _noise,
+                 'predicted':rfn.travel_times[i],
+                 'residual':rfn.residuals[i],
+                 'error':rfn.pick_errors[i],
                  'source_x':sx, 'source_y':sy,
                  'source_z':rfn.paths[i][0][2],
                  'receiver_x':rx, 'receiver_y':ry,
                  'receiver_z':rfn.endpoints[i][2],
-                 'offset':x,
+                 'offset':rfn.offsets[i],
+                 'faz':rfn.azimuths[i],
+                 'method':'rayfan2pickdb({:}, {:}, noise={:})'\
+                            .format(rayfan_file, pickdb_file, noise),
                  'data_file':rays.file.name}
             pickdb.update_pick(**d)
-            pickdb.commit()
+        pickdb.commit()
+    ndb = pickdb.execute('SELECT COUNT(rowid) FROM picks').fetchone()[0]
+    if (ndb - ndb0) != rays.nrays:
+        msg = 'Only added {:} of {:} travel times to the database.'\
+                .format(ntimes, ndb - ndb0)
+        warnings.warn(msg)
     return pickdb
-
 

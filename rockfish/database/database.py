@@ -13,6 +13,18 @@ class RockfishDatabaseConnection(sqlite3.Connection):
         # enable case-insensative keyword access to data rows
         self.row_factory = sqlite3.Row
 
+    def _add_field_if_not_exists(self, table, name, sql_type='TEXT'):
+        """
+        Add a field to an existing table if it does not already exist.
+
+        :param table: Name of table to add field to.
+        :param name: Field name.
+        :param sql_type: SQLite data type for the new field. Default is TEXT.
+        """
+        sql = 'ALTER TABLE {:}'.format(table)
+        sql += ' ADD COLUMN {:} {:}'.format(name, sql_type)
+        self.execute(sql)
+
     def _insert(self, table, **kwargs):
         """
         Adds an entry to a table.

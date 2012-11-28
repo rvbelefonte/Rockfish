@@ -60,6 +60,10 @@ Other non-required fields are:
 ================= =========  ====================== =====================
 Field Name        SQL Type   Description            Default Value
 ================= =========  ====================== =====================
+predicted         real       Modeled travel time.   None 
+residual          real       Difference between     None
+                             picked and predicted
+                             travel times.
 time_reduced      real       Reduced pick time in   None
                              seconds.
 error             real       Pick error in seconds. ``0.0``
@@ -162,6 +166,8 @@ PICK_FIELDS = [
           ('trace', 'INTEGER', None, True, True),
           ('time', 'REAL', None, True, False),
           ('time_reduced', 'REAL', None, True, False),
+          ('predicted', 'REAL', None, False, False),
+          ('residual', 'REAL', None, False, False),
           ('error', 'REAL', 0.0, True, False),
           ('timestamp', 'TIMESTAMP', 'CURRENT_TIMESTAMP', True, False),
           ('method', 'TEXT', 'unknown', False, False),
