@@ -4,15 +4,15 @@ utils Package
 :mod:`utils` Package
 --------------------
 
-.. automodule:: rockfish.utils
+.. automodule:: rockfish.dev.sandbox.apps.utils
     :members:
     :undoc-members:
     :show-inheritance:
 
-:mod:`version` Module
----------------------
+:mod:`argparser` Module
+-----------------------
 
-.. automodule:: rockfish.utils.version
+.. automodule:: rockfish.dev.sandbox.apps.utils.argparser
     :members:
     :undoc-members:
     :show-inheritance:

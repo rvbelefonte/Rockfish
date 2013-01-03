@@ -1,5 +1,7 @@
-from rockfish.core.util import get_version
+"""
+**Rockfish** is a Python library for working with
+active-source seismic data.
+"""
+from rockfish.utils.version import get_version
 
-VERSION = (0, 1, 0, 'alpha', 0)
-__version__ = get_version(VERSION)
-
+__version__ = get_version()

@@ -38,10 +38,10 @@ help:
 	@echo "  linkcheck  to check all external links for integrity"
 	@echo "  doctest    to run all doctests embedded in the documentation (if enabled)"
 
-clean: 
+clean:
 	-rm -rf $(BUILDDIR)/*
 
-html: apidoc 
+html: 
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
@@ -156,10 +156,10 @@ doctest:
 #=====================================================
 # Custom add ons to Makefile made by sphinx-quickstart
 #=====================================================
-SPHINXAPIDOC  = bin/generate_modules.py 
+SPHINXAPIDOC  = sphinx-apidoc
 SPHINXAUTOGEN = sphinx-autogen
 SOURCE_DIR = source
-GENERATED_DIR = $(SOURCE_DIR)/autogen
+GENERATED_DIR = $(SOURCE_DIR)/generated
 PROJECT_ROOT = ../rockfish
 
 # Use sphinx-autogen to make source tree
@@ -173,5 +173,4 @@ autogen-clean:
 # Use sphinx-apidoc to crawl the source tree and write a *.rst
 # file for each package and module
 apidoc:
-	mkdir -p $(GENERATED_DIR)
-	$(SPHINXAPIDOC) -d $(GENERATED_DIR)  -s rst $(PROJECT_ROOT)
+	$(SPHINXAPIDOC) -o $(SOURCE_DIR)  $(PROJECT_ROOT)

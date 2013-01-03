@@ -5,6 +5,9 @@ Home
      :glob:
      :hidden:
 
+     install
+     how_to
+     command_line_utilities
      library_reference
           
 
@@ -12,12 +15,18 @@ About
 =====
 
 
-**Rockfish** is a Python library for working with
+**Rockfish** is a new Python library for working with
 active-source seismic data.
 
 
 Documentation
 =============
+
+:ref:`install` -- *How to install*
+
+:ref:`how_to` -- *Look at examples*
+
+:ref:`command_line_utilities` -- *See documentation for tools*
 
 :ref:`library_reference` -- *Browse the source*
 
