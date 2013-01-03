@@ -18,20 +18,16 @@ def get_version(version):
 
     :param version: Tuple of X, Y, Z, release type, revision.
 
-    :examples:
-
+    >>> from rockfish.utils.version import get_version
     >>> VERSION = (0, 5, 0, 'alpha', 48)
     >>> get_version(VERSION)
     '0.5a48'
-
     >>> VERSION = (1, 2, 1, 'beta', 0)
     >>> get_version(VERSION)
     '1.2.1b0'
-
     >>> VERSION = (1, 2, 1, 'final', 0)
     >>> get_version(VERSION)
     '1.2.1'
-
     """
     assert len(version) == 5
     assert version[3] in ('alpha', 'beta', 'rc', 'final')

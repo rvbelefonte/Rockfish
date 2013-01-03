@@ -41,7 +41,7 @@ help:
 clean: 
 	-rm -rf $(BUILDDIR)/*
 
-html: apidoc 
+html: autogen 
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
@@ -149,6 +149,8 @@ linkcheck:
 
 doctest:
 	$(SPHINXBUILD) -b doctest $(ALLSPHINXOPTS) $(BUILDDIR)/doctest
+	sed 's/autogen\///g' $(BUILDDIR)/doctest/output.txt \
+		   > $(GENERATED_DIR)/doctest_results.rst
 	@echo "Testing of doctests in the sources finished, look at the " \
 	      "results in $(BUILDDIR)/doctest/output.txt."
 
@@ -162,8 +164,7 @@ SOURCE_DIR = source
 GENERATED_DIR = $(SOURCE_DIR)/autogen
 PROJECT_ROOT = ../rockfish
 
-# Use sphinx-autogen to make source tree
-autogen:
+autogen: apidoc doctest
 	mkdir -p $(GENERATED_DIR)
 	$(SPHINXAUTOGEN)  -o $(GENERATED_DIR) $(SOURCE_DIR)/*.rst
 

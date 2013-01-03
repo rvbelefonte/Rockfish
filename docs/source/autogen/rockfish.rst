@@ -13,5 +13,6 @@ rockfish Package
 
     .. autosummary::
 
+      rockfish.equations
       rockfish.utils
 

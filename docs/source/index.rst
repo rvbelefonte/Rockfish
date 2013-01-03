@@ -21,6 +21,10 @@ Documentation
 
 :ref:`library_reference` -- *Browse the source*
 
+Testing
+=======
+
+:ref:`doctest_results` -- *Results of running inline examples*
 
 Indices
 =======
