@@ -4,4 +4,6 @@ active-source seismic data.
 """
 from rockfish.utils.version import get_version
 
-__version__ = get_version()
+VERSION = (0, 5, 0, 'alpha', 0)
+
+__version__ = get_version(VERSION)
