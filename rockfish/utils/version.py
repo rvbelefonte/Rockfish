@@ -1,5 +1,6 @@
 import subprocess
 
+
 def get_git_revision():
     """
     Returns the revision number of the git repository.
@@ -11,12 +12,18 @@ def get_git_revision():
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     out, err = proc.communicate()
     return int(out)
-    
+
+
 def get_version(version):
     """
     Derives a PEP386-compliant version number from a version tuple.
 
-    :param version: Tuple of X, Y, Z, release type, revision.
+    :param version: Tuple of ``X, Y, Z, release_type, revision``. If ``Z`` is
+        ``0``, this subversion number is omitted.  If ``release_type`` is
+        ``alpha``, the given ``revision`` number is included (if ``revision``
+        is not ``0``) or the revision number of git repository is used
+        (if ``revision`` is ``0``).
+    :returns: PEP386-compliant version number string
 
     >>> from rockfish.utils.version import get_version
     >>> VERSION = (0, 5, 0, 'alpha', 48)

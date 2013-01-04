@@ -122,7 +122,7 @@ html_title = "Rockfish " + release
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = '_static/img/rockfish_211x80.png'
+html_logo = '_static/rockfish_211x80.png'
 full_logo = True
 
 # The name of an image file (within the static path) to use as favicon of the
@@ -301,11 +301,11 @@ epub_copyright = u'2012, Nathaniel Miller'
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_cache_limit = 10     # days to keep the cached inventories
 intersphinx_mapping = {
-    'obspy':('http://docs.obspy.org',None),
-    'sphinx':('http://sphinx.pocoo.org',  None),
-    'python':('http://docs.python.org/2.7',None),
-    'matplotlib':('http://matplotlib.sourceforge.net', None),
-    'numpy':('http://docs.scipy.org/doc/numpy',None),
+    'obspy':('http://docs.obspy.org',None)
+    #'sphinx':('http://sphinx.pocoo.org',  None),
+    #'python':('http://docs.python.org/2.7',None),
+    #'matplotlib':('http://matplotlib.sourceforge.net', None),
+    #'numpy':('http://docs.scipy.org/doc/numpy',None),
 }
 
 

@@ -1,3 +1,0 @@
-"""
-Graphical-user interfaces.
-"""

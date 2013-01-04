@@ -1,17 +1,6 @@
 Home
 ****
 
-.. toctree::
-     :glob:
-     :hidden:
-
-     library_reference
-          
-
-About
-=====
-
-
 **Rockfish** is a Python library for working with
 active-source seismic data.
 
@@ -19,12 +8,20 @@ active-source seismic data.
 Documentation
 =============
 
+:ref:`tutorial-index` -- *Start here*
+
 :ref:`library_reference` -- *Browse the source*
 
-Testing
-=======
+Developement Status
+===================
 
-:ref:`doctest_results` -- *Results of running inline examples*
+.. image:: unittest/unittest.png
+.. image:: pep8/pep8.png
+
+`Test Results <_sources/unittest_results.html>`_ -- *unittest and doctest results*
+
+:ref:`pep8-index` -- *PEP8 coding-style compliance report*
+
 
 Indices
 =======

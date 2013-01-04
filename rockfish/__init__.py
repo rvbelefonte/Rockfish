@@ -1,9 +1,11 @@
 """
-**Rockfish** is a Python library for working with
-active-source seismic data.
+Python library for working with active-source seismic data.
 """
-from rockfish.utils.version import get_version
+import database
+import equations
+import io
+import navigation
+import utils
 
 VERSION = (0, 5, 0, 'alpha', 0)
-
-__version__ = get_version(VERSION)
+__version__ = utils.version.get_version(VERSION)

@@ -3,6 +3,7 @@ Anisotropy equations.
 """
 import numpy as np
 
+
 def transverse_p(theta, A, B, C):
     """
     Calculate seismic p wavespeeds in transversely isotropic media.
@@ -16,7 +17,8 @@ def transverse_p(theta, A, B, C):
     array([ 8.39702328,  8.08888126,  7.9492138 ])
     """
     _theta = np.deg2rad(theta)
-    return np.sqrt(A+B*np.cos(2*_theta) + C*np.cos(4*_theta))
+    return np.sqrt(A + B * np.cos(2 * _theta) + C * np.cos(4 * _theta))
+
 
 def velocity2delay_time(velocity, distance, reference_velocity=None):
     """
@@ -28,7 +30,7 @@ def velocity2delay_time(velocity, distance, reference_velocity=None):
         travel time. Default is to use the mean velocity.
     :returns: List of delay times.
 
-    >>> from rockfish.equations.anisotropy import velocity2delay_time 
+    >>> from rockfish.equations.anisotropy import velocity2delay_time
     >>> velocity2delay_time([7.5, 8.0, 8.5], 50., 7.5)
     array([ 0.        , -0.41666667, -0.78431373])
     """
@@ -37,7 +39,7 @@ def velocity2delay_time(velocity, distance, reference_velocity=None):
         vel0 = _vel.mean()
     else:
         vel0 = reference_velocity
-    return distance/_vel - distance/vel0
+    return distance / _vel - distance / vel0
 
 if __name__ == "__main__":
     import doctest

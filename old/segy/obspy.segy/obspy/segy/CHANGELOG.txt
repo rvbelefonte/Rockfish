@@ -1,0 +1,5 @@
+dev:
+ * support for converting coordinates and elevations from signed integers to
+   real values
+ * unpack SEGYTrace.data on-the-fly patch contributed Nathaniel Miller
+ * fixing a bug related to negative values in trace header

@@ -1,3 +1,0 @@
-"""
-Master test module.
-"""

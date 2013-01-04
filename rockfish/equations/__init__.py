@@ -1,3 +1,3 @@
 """
-Calculate values using published equations.
+Calculate values using published equations
 """
