@@ -67,6 +67,33 @@ class vmTestCase(unittest.TestCase):
         # clean up
         os.remove(tmp)
 
+    def test_x2i(self):
+        """
+        Should convert between x indices and coordinates and back
+        """
+        vm = VM()
+        x = vm.r1[0] + (vm.r2[0] - vm.r1[0]) / 2.
+        ix = vm.x2i([x])
+        self.assertEqual(x, vm.i2x(ix)[0])
+
+    def test_y2i(self):
+        """
+        Should convert between y indices and coordinates and back
+        """
+        vm = VM()
+        y = vm.r1[1] + (vm.r2[1] - vm.r1[1]) / 2.
+        iy = vm.y2i([y])
+        self.assertEqual(y, vm.i2y(iy)[0])
+
+    def test_z2i(self):
+        """
+        Should convert between z indices and coordinates and back
+        """
+        vm = VM()
+        z = vm.r1[1] + (vm.r2[1] - vm.r1[1]) / 2.
+        iz = vm.z2i([z])
+        self.assertEqual(z, vm.i2z(iz)[0])
+
 
 def suite():
     return unittest.makeSuite(vmTestCase, 'test')

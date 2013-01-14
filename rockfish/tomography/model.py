@@ -345,14 +345,11 @@ class VM(object):
         self.dy = dy
         self.dz = dz
         # Initialize arrays to all zeros
-        self.sl = np.zeros((nx, ny, nz))
-        self.rf = np.zeros((nr, nx, ny))
-        self.jp = np.zeros((nr, nx, ny))
-        self.ir = np.zeros((nr, nx, ny))
-        self.ij = np.zeros((nr, nx, ny))
-        # Set max dimensions
-        #XXX self.r2 = (self.x[-1], self.y[-1], self.z[-1])
-        # TODO make this a property
+        self.sl = np.empty((nx, ny, nz))
+        self.rf = np.empty((nr, nx, ny))
+        self.jp = np.empty((nr, nx, ny))
+        self.ir = np.empty((nr, nx, ny))
+        self.ij = np.empty((nr, nx, ny))
 
     def init_empty_model(self):
         """
@@ -667,12 +664,21 @@ class VM(object):
 
     def x2i(self, x):
         """
-        Find an x index for an x coordinate.
+        Find x indices for x coordinates.
 
         :param x: list of x coordinates in the model
         :returns: list of nearest x index for the given coordinates
         """
         return [int((_x - self.r1[0]) / self.dx) for _x in x]
+
+    def i2x(self, ix):
+        """
+        Find x coordinates for x indices.
+
+        :param ix: list of x indices
+        :returns: list of x coordinates
+        """
+        return [self.r1[0] + _ix * self.dx for _ix in ix]
 
     def xrange2i(self, xmin=None, xmax=None):
         """
@@ -699,6 +705,15 @@ class VM(object):
         """
         return [int((_y - self.r1[1]) / self.dy) for _y in y]
 
+    def i2y(self, iy):
+        """
+        Find y coordinates for y indices.
+
+        :param iy: list of y indices
+        :returns: list of y coordinates
+        """
+        return [self.r1[0] + _iy * self.dy for _iy in iy]
+
     def yrange2i(self, ymin=None, ymax=None):
         """
         Returns a list of y indices for a given y range.
@@ -719,10 +734,19 @@ class VM(object):
         """
         Find a z index for a z coordinate.
 
-        :param z: list of z coordinates in the model
-        :returns: list of nearest z index for the given coordinates
+        :param y: list of y coordinates in the model
+        :returns: list of nearest y index for the given coordinates
         """
-        return [int((_z - self.r1[2]) / self.dz) for _z in z]
+        return [int((_z - self.r1[1]) / self.dz) for _z in z]
+
+    def i2z(self, iz):
+        """
+        Find z coordinates for z indices.
+
+        :param iz: list of z indices
+        :returns: list of z coordinates
+        """
+        return [self.r1[0] + _iz * self.dz for _iz in iz]
 
     def zrange2i(self, zmin=None, zmax=None):
         """
@@ -781,14 +805,20 @@ class VM(object):
         if dx is None:
             dx = self.dx
         vm = VM(r1=(min(_xline), 0, self.r1[2]),
-                r2=(max(_xline), 0, self.r2[2]),
+                r2=(max(_xline) - dx, 0, self.r2[2]),
                 dx=dx, dy=1, dz=self.dz, nr=self.nr)
         # Pull slowness grid and interface values along line
         interp_y = interp1d(x, y)
         interp_x = interp1d(_xline, x)
         for _ixl, _xl in enumerate(vm.x):
             # get coordinates of position on line
-            _x = interp_x(_xl)
+            try:
+                _x = interp_x(_xl)
+            except ValueError as e:
+                msg = ' (min, max x-coordinate in 2D model is'
+                msg += ' {:}, {:}'.format(min(_xline), max(_xline))
+                msg += '; at x = {:}.)'.format(_xl)
+                raise ValueError(e.message + msg)
             _y = interp_y(_x)
             # get indices in 3D model
             ix = self.x2i([_x])[0]
@@ -857,7 +887,7 @@ class VM(object):
         assert ir.shape == (self.nx, self.ny)
         assert ij.shape == (self.nx, self.ny)
         # Insert arrays for new interface
-        if iref == 0:
+        if self.nr == 1:
             self.rf = np.asarray([rf])
             self.jp = np.asarray([jp])
             self.ir = np.asarray([ir])
@@ -920,7 +950,7 @@ class VM(object):
         if apply_jumps:
             vm.remove_jumps()
 
-    def plot_interface_depth(self, idx, ax=None, outfile=None):
+    def plot_surface(self, idx, ax=None, outfile=None):
         """
         Plot a surface.
 
