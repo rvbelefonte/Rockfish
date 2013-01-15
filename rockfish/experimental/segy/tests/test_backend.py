@@ -7,12 +7,11 @@ from StringIO import StringIO
 from tempfile import NamedTemporaryFile
 from rockfish.experimental.segy.header import \
         DATA_SAMPLE_FORMAT_PACK_FUNCTIONS, DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS
-from rockfish.experimental.segy.segy import \
+from rockfish.experimental.segy.backend import \
         SEGYBinaryFileHeader, SEGYTraceHeader, SEGYFile, readSEGY
 from rockfish.experimental.segy.tests.header import FILES, DTYPES
 import numpy as np
 import os
-import warnings
 import unittest
 
 
@@ -313,8 +312,7 @@ class SEGYTestCase(unittest.TestCase):
             # Assert the actual header.
             self.assertEqual(org_header, new_header)
 
-    def test_readAndWriteTraceHeader(self, scale_headers=False,
-                                     computed_headers=False):
+    def test_readAndWriteTraceHeader(self):
         """
         Reading and writing should not change the trace header.
         """
@@ -325,18 +323,7 @@ class SEGYTestCase(unittest.TestCase):
             with open(file, 'rb') as f:
                 f.seek(3600)
                 org_header = f.read(240)
-            if scale_headers:
-                # create with scaling properties for testing
-                # SEGYScaledTraceHeader
-                header = SEGYScaledTraceHeader(header=org_header, 
-                                               endian=endian)
-            elif scale_headers:
-                # create with scaling properties for testing
-                # SEGYComputedTraceHeader
-                header = SEGYComputedTraceHeader(header=org_header,
-                                                 endian=endian)
-            else:
-                header = SEGYTraceHeader(header=org_header, endian=endian)
+            header = SEGYTraceHeader(header=org_header, endian=endian)
             # The header writes to a file like object.
             new_header = StringIO()
             header.write(new_header)
@@ -347,147 +334,7 @@ class SEGYTestCase(unittest.TestCase):
             # Assert the actual header.
             self.assertEqual(org_header, new_header)
 
-    def test_readAndWriteScaledTraceHeader(self):
-        """
-        The scaled trace header should behave just like the normal header when
-        reading and writing.
-        """
-        self.test_readAndWriteTraceHeader(scale_headers=True)
-
-    def test_readAndWriteComputedTraceHeader(self):
-        """
-        The computed trace header should behave just like the normal header
-        when reading and writing.
-        """
-        self.test_readAndWriteTraceHeader(computed_headers=True)
-
-    def test_modifyScaledTraceHeader(self):
-        """
-        Changes to the scaled properties should update the unscaled attributes.
-        """
-        for file, attribs in self.files.iteritems():
-            endian = attribs['endian']
-            file = os.path.join(self.path, file)
-            # Read the file with readSEGY to make sure the scale_headers
-            # parameter makes it from top to bottom.
-            sgy = readSEGY(file, scale_headers=True)
-            # Get the header from the first trace.
-            header = sgy.traces[0].header
-            # check that set/get works for each property
-            coordinate_attr = ['scaled_source_coordinate_x',
-                               'scaled_source_coordinate_y',
-                               'scaled_group_coordinate_x',
-                               'scaled_group_coordinate_y']
-            elevation_attr = ['scaled_receiver_group_elevation',
-                              'scaled_surface_elevation_at_source',
-                              'scaled_source_depth_below_surface',
-                              'scaled_datum_elevation_at_receiver_group',
-                              'scaled_datum_elevation_at_source',
-                              'scaled_water_depth_at_source']
-
-            # check that set/get works for each coordinate property
-            header.scalar_to_be_applied_to_all_elevations_and_depths = 1
-            header.scalar_to_be_applied_to_all_coordinates = 1
-            header.coordinate_units = 1
-            for property_name in coordinate_attr + elevation_attr:
-                logging.debug('testing %s' %property_name)
-                # should yeild the same value when scalars are 1
-                unscaled_name = property_name.replace('scaled_','')
-                self.assertEqual(header.__getattribute__(property_name),
-                                 header.__getattribute__(unscaled_name))
-                # should be able to modify values by setting the scaled value
-                new_value = 999
-                header.__setattr__(property_name, new_value)
-                self.assertEqual(new_value, 
-                                 header.__getattribute__(property_name))
-                self.assertEqual(new_value, 
-                                 header.__getattribute__(unscaled_name))
-                # should be able to modify values by setting the unscaled value
-                new_value = 888
-                header.__setattr__(unscaled_name, new_value)
-                self.assertEqual(new_value,
-                                 header.__getattribute__(unscaled_name))
-                self.assertEqual(new_value, 
-                                 header.__getattribute__(property_name))
-            # check that unit conversions are correct for coordinates
-            for property_name in coordinate_attr:
-                logging.debug('testing %s' %property_name)
-                unscaled_name = property_name.replace('scaled_','')
-                # check the scaling for geographic coordinates
-                # set scalar for dividing by 100
-                header.scalar_to_be_applied_to_all_coordinates = -100 
-                # set units to geographic
-                header.coordinate_units = 2
-                # set a coordinate value 
-                new_value = -80.230
-                header.__setattr__(property_name, new_value)
-                # should give <signed_integer_value>/3.6e3/100
-                self.assertEqual(header.__getattribute__(property_name),
-                    header.__getattribute__(unscaled_name)/3.6e3/100)
-                # check the scaling for cartesian coordinates
-                # set scalar for multiplying 10
-                header.scalar_to_be_applied_to_all_coordinates = 10
-                # set units to cartesian
-                header.coordinate_units = 1
-                # set a new coordinate value 
-                new_value = -10
-                header.__setattr__(property_name, new_value)
-                # should give <signed_integer_value>*10
-                self.assertEqual(header.__getattribute__(property_name),
-                                 header.__getattribute__(unscaled_name)*10)
-            # check that unit conversions are correct for elevations
-            header.scalar_to_be_applied_to_all_elevations_and_depths = 1
-            for property_name in elevation_attr:
-                logging.debug('testing %s' %property_name)
-                unscaled_name = property_name.replace('scaled_','')
-                # should yeild the same value when scalars are 1
-                unscaled_name = property_name.replace('scaled_','')
-                self.assertEqual(header.__getattribute__(property_name),
-                                 header.__getattribute__(unscaled_name))
-                # should be able to modify values by setting the scaled value
-                new_value = 999
-                header.__setattr__(property_name, new_value)
-                self.assertEqual(new_value, 
-                                 header.__getattribute__(property_name))
-                self.assertEqual(new_value,
-                                 header.__getattribute__(unscaled_name))
-                # should be able to modify values by setting the unscaled value
-                new_value = 888
-                header.__setattr__(unscaled_name, new_value)
-                self.assertEqual(new_value, 
-                                 header.__getattribute__(unscaled_name))
-                self.assertEqual(new_value,
-                                 header.__getattribute__(property_name))
-
-    def test_SEGYComputedTraceHeader(self):
-        """
-        Should create properties for values computed from other header
-        attributes.
-        """
-        for file, attribs in self.files.iteritems():
-            endian = attribs['endian']
-            file = os.path.join(self.path, file)
-            # Read the file.
-            with open(file, 'rb') as f:
-                f.seek(3600)
-                org_header = f.read(240)
-            header = SEGYComputedTraceHeader(header=org_header, endian=endian)
-            # XXX DEV offset and azimuth only works for geographic so far!
-            header.coordinate_units = 2
-            # changing a coordinate arrtibute should change these properties
-            for property_name in ['computed_source_receiver_offset_in_m',
-                                  'computed_azimuth_in_deg',
-                                  'computed_backazimuth_in_deg']:
-                header.scaled_source_coordinate_x = 100.00
-                header.scaled_source_coordinate_y = 10.00
-                header.scaled_group_coordinate_x = 101.00
-                header.scaled_group_coordinate_y = 10.00
-                value0 = header.__getattribute__(property_name)
-                header.scaled_source_coordinate_x = 160.00
-                value1 = header.__getattribute__(property_name)
-                self.assertFalse(value0 == value1)
-
-    def test_readAndWriteSEGY(self, headonly=False, unpack_data=True):
+    def test_readAndWriteSEGY(self, headonly=False):
         """
         Reading and writing again should not change a file.
         """
@@ -497,8 +344,7 @@ class SEGYTestCase(unittest.TestCase):
             # Read the file.
             with open(file, 'rb') as f:
                 org_data = f.read()
-            segy_file = readSEGY(file, headonly=headonly, 
-                                 unpack_data=unpack_data)
+            segy_file = readSEGY(file, headonly=headonly)
             out_file = NamedTemporaryFile().name
             segy_file.write(out_file)
             # Read the new file again.
@@ -527,57 +373,11 @@ class SEGYTestCase(unittest.TestCase):
             self.assertEqual(org_data[:3500], new_data[:3500])
             self.assertEqual(org_data[3502:], new_data[3502:])
 
-    def test_readAndWriteSEGY_unpack_data_False(self):
+    def test_readAndWriteSEGY_headonly(self):
         """
-        Reading with unpack_data=False and writing again should also not 
-        change a file.
+        Reading with headonly=True and writing again should not change a file.
         """
-        # data loaded with headonly=False and unpack_data=False should provide
-        # access to data as if loaded with the default option values
-        self.test_readAndWriteSEGY(headonly=False,unpack_data=False)
-
-        # test that SEGYTrace.__getattribute__() behaves as expected
-        for file, attribs in self.files.iteritems():
-            file = os.path.join(self.path, file)
-            # Read the file and grab the 1st trace
-            segy = readSEGY(file, unpack_data=False)
-            tr = segy.traces[0]
-            # Access to 'data' is tested by test_readAndWriteSEGY()
-            # Access to other non-existing attibutes should raise an
-            # AttributeError
-            with self.assertRaises(AttributeError):
-                d = tr.nonexistant_attribute
-            # Remove the unpack_data method to force an error
-            tr.__delattr__('_unpack_data')
-            # Problems accessing 'data' should raise an 
-            # SEGYTraceOnTheFlyDataUnpackingError
-            with self.assertRaises(SEGYTraceOnTheFlyDataUnpackingError):
-                d = tr.data
-
-    def test_readSEGY_headonly(self):
-        """
-        Reading with headonly=True should always create traces with data=None.
-        """
-        # headonly should override unpack_data
-        for unpack_data in [True, False]:
-            for file, attribs in self.files.iteritems():
-                file = os.path.join(self.path, file)
-                # create a new warnings catcher
-                with warnings.catch_warnings(record=True) as w:
-                    # Cause all warnings to always be triggered.
-                    warnings.simplefilter("always")
-                    # Read the file.
-                    segy_file = readSEGY(file, headonly=True, 
-                                         unpack_data=unpack_data)
-                    # data should be None
-                    self.assertEqual(segy_file.traces[0].data,None)
-                    # should warn user that headonly is overriding unpack_data
-                    if not unpack_data:
-                        # should issue just one warning
-                        self.assertTrue(len(w) == 1)
-                        # warning should refer to headonly=True
-                        self.assertTrue('headonly=True overrides' in \
-                                        str(w[-1].message))
+        self.test_readAndWriteSEGY(headonly=True)
 
     def test_unpackBinaryFileHeader(self):
         """
@@ -714,11 +514,8 @@ class SEGYTestCase(unittest.TestCase):
             header.x_coordinate_of_ensemble_position_of_this_trace, 0)
         self.assertEqual( \
             header.y_coordinate_of_ensemble_position_of_this_trace, 0)
-        self.assertEqual( \
-            header.for_3d_poststack_data_this_field_is_for_in_line_number, 0)
-        self.assertEqual( \
-            header.for_3d_poststack_data_this_field_is_for_cross_line_number,
-                         0)
+        self.assertEqual(header.inline_number, 0)
+        self.assertEqual(header.crossline_number, 0)
         self.assertEqual(header.shotpoint_number, 0)
         self.assertEqual( \
             header.scalar_to_be_applied_to_the_shotpoint_number, 0)
@@ -771,7 +568,7 @@ def rms(x, y):
     Normalized RMS
 
     Taken from the mtspec library:
-    http://svn.geophysik.uni-muenchen.de/trac/mtspecpy
+    https://github.com/krischer/mtspec
     """
     return np.sqrt(((x - y) ** 2).mean() / (x ** 2).mean())
 
