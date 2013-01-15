@@ -3,24 +3,25 @@ Internal handling of SEG-Y data.
 """
 
 import copy
-from obspy.segy.segy import SEGYTrace,\
-                            SEGYError, SEGYTraceHeaderTooSmallError,\
-                            SEGYTraceReadingError, SEGYWritingError
-from obspy.segy import pack
-from obspy.segy.segy import SEGYFile as obspySEGYFile
-
-from obspy.segy.header import ENDIAN, DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS, \
+from rockfish.experimental.segy.backend import SEGYTrace,\
+        SEGYTraceHeader, SEGYError, SEGYTraceHeaderTooSmallError,\
+        SEGYTraceReadingError, SEGYWritingError
+from rockfish.experimental.segy import pack
+from rockfish.experimental.segy.backend import SEGYBinaryFileHeader
+from rockfish.experimental.segy.backend import SEGYFile as _SEGYFile
+from rockfish.experimental.segy.header import ENDIAN, \
+    DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS, \
     BINARY_FILE_HEADER_FORMAT, DATA_SAMPLE_FORMAT_PACK_FUNCTIONS, \
     TRACE_HEADER_FORMAT, DATA_SAMPLE_FORMAT_SAMPLE_SIZE, TRACE_HEADER_KEYS
 from rockfish.signals import gains
 from rockfish.segy.fft import SEGYFFT
 from rockfish.segy.timeshifts import SEGYTimeshifts
-
 from rockfish.plotting.plotters import SEGYPlotter
 from rockfish.signals.filters import SEGYFilters
 from rockfish.sorting.trace_sorting import SEGYSorting
 import matplotlib.pyplot as plt
 import numpy as np
+
 
 class SEGYGainRemoveError(SEGYError):
     """
@@ -40,7 +41,7 @@ class SEGYTraceHeaderDatetimeError(SEGYError):
     """
     pass
 
-class SEGYFile(obspySEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts, 
+class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts, 
                SEGYSorting):
     """
     Class that handles reading, writing, plotting, and processing of SEG-Y data.
@@ -88,7 +89,7 @@ class SEGYFile(obspySEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
             self.copy(file, headonly=headonly)
         else:
             # Open a new file or create an empty SEGYFile instance
-            obspySEGYFile.__init__(self,file,endian=endian,
+            _SEGYFile.__init__(self,file,endian=endian,
                     textual_header_encoding=textual_header_encoding,
                     unpack_headers=unpack_headers, headonly=headonly,
                     unpack_data=unpack_data, scale_headers=scale_headers,

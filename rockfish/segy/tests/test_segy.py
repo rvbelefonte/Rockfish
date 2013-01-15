@@ -3,7 +3,7 @@ Test suite for rockfish.segy.segy
 """
 
 import unittest
-from rockfish.segy.segy import readSEGY, SEGYFile
+from rockfish.experimental.segy.segy import readSEGY, SEGYFile
 from rockfish.utils.loaders import get_example_file
 
 class SEGYFileTestCase(unittest.TestCase):
