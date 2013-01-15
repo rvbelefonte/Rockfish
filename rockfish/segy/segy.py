@@ -3,13 +3,13 @@ Internal handling of SEG-Y data.
 """
 
 import copy
-from rockfish.experimental.segy.backend import SEGYTrace,\
+from rockfish.segy.backend import SEGYTrace,\
         SEGYTraceHeader, SEGYError, SEGYTraceHeaderTooSmallError,\
         SEGYTraceReadingError, SEGYWritingError
-from rockfish.experimental.segy import pack
-from rockfish.experimental.segy.backend import SEGYBinaryFileHeader
-from rockfish.experimental.segy.backend import SEGYFile as _SEGYFile
-from rockfish.experimental.segy.header import ENDIAN, \
+from rockfish.segy import pack
+from rockfish.segy.backend import SEGYBinaryFileHeader
+from rockfish.segy.backend import SEGYFile as _SEGYFile
+from rockfish.segy.header import ENDIAN, \
     DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS, \
     BINARY_FILE_HEADER_FORMAT, DATA_SAMPLE_FORMAT_PACK_FUNCTIONS, \
     TRACE_HEADER_FORMAT, DATA_SAMPLE_FORMAT_SAMPLE_SIZE, TRACE_HEADER_KEYS

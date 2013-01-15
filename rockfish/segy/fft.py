@@ -4,7 +4,7 @@ Wrappers for calculating FFTs and IFFTs of SEG-Y data.
 
 import matplotlib.pyplot as plt
 import numpy as np
-from rockfish.segy.utils import SEGYUtils
+from rockfish.segy.util import SEGYUtils
 
 class SEGYFFT(SEGYUtils):
     """

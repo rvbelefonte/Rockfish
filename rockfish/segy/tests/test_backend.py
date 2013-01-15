@@ -5,11 +5,11 @@ The obspy.segy test suite.
 
 from StringIO import StringIO
 from tempfile import NamedTemporaryFile
-from rockfish.experimental.segy.header import \
+from rockfish.segy.header import \
         DATA_SAMPLE_FORMAT_PACK_FUNCTIONS, DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS
-from rockfish.experimental.segy.backend import \
+from rockfish.segy.backend import \
         SEGYBinaryFileHeader, SEGYTraceHeader, SEGYFile, readSEGY
-from rockfish.experimental.segy.tests.header import FILES, DTYPES
+from rockfish.segy.tests.header import FILES, DTYPES
 import numpy as np
 import os
 import unittest
