@@ -1,10 +1,12 @@
 
 .. _pickdatabase-tutorial:
 
-Pick database
-*************
+Travel time databases
+*********************
 
-Rockfish stores picks in a SQLite3 database.  The following describes how to
+Rockfish has support for managing travel-time picks. In Rockfish, picks are
+stored in a `SQLite <http://www.sqlite.org>` database with a set of
+standardized tables and fields. The following tutorial describes how to
 setup up this database, and get pick data in and out of the database.
 
 Creating a Pick Database

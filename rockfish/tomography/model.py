@@ -1122,6 +1122,7 @@ class VM(object):
         if outfile:
             fig.savefig(outfile)
         elif show:
+            plt.tight_layout()
             plt.show()
         else:
             plt.draw()

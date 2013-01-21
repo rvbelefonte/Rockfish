@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import wx
 from rockfish.segy.segy import readSEGY
-from rockfish.core.util import get_example_file
+from rockfish.utils.loaders import get_example_file
 from rockfish.picking.database import PickDatabaseConnection
 from rockfish.gui.menus import PlotSegyViewMenu, PlotSegyPlottingMenu, \
     PlotSegyPickingMenu, PlotSegyFileMenu

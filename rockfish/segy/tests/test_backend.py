@@ -373,12 +373,6 @@ class SEGYTestCase(unittest.TestCase):
             self.assertEqual(org_data[:3500], new_data[:3500])
             self.assertEqual(org_data[3502:], new_data[3502:])
 
-    def test_readAndWriteSEGY_headonly(self):
-        """
-        Reading with headonly=True and writing again should not change a file.
-        """
-        self.test_readAndWriteSEGY(headonly=True)
-
     def test_unpackBinaryFileHeader(self):
         """
         Compares some values of the binary header with values read with

@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 from rockfish.segy.segy import readSEGY, TRACE_HEADER_KEYS
-from rockfish.core.util import get_example_file
+from rockfish.utils.loaders import get_example_file
 from rockfish.picking.database import PickDatabaseConnection
 from rockfish.segy.database import SEGYHeaderDatabase
 from rockfish.plotting.plotters import SEGYPlotManager, \

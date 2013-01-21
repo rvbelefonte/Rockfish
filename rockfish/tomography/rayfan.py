@@ -143,8 +143,10 @@ class RayfanGroup(object):
             ax.set_ylim(ax.get_ylim()[::-1])
         if outfile:
             fig.savefig(outfile)
-        else:
+        elif show:
             plt.show()
+        else:
+            plt.draw()
 
     def plot_time_vs_position(self, end='source', dimension='x',
                               traced=True, predicted=True,
@@ -166,6 +168,9 @@ class RayfanGroup(object):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
         end_opts = {'source': 0, 'receiver': -1}
         dim_opts = {'x': 0, 'y': 1, 'z': 2}
         iend = end_opts[end]
@@ -181,8 +186,10 @@ class RayfanGroup(object):
         plt.ylabel('t (s)')
         if outfile:
             fig.savefig(outfile)
-        else:
+        elif show:
             plt.show()
+        else:
+            plt.draw()
 
     def plot_residuals_vs_azimuth(self, ax=None, outfile=None, markersize=2):
         """
@@ -200,6 +207,9 @@ class RayfanGroup(object):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
         for rfn in self.rayfans:
             ax.scatter(rfn.azimuths, rfn.residuals, c=rfn.offsets,
                        cmap='hsv', s=markersize, edgecolor=None)
@@ -208,8 +218,10 @@ class RayfanGroup(object):
         plt.xlim(0, 360)
         if outfile:
             fig.savefig(outfile)
-        else:
+        elif show:
             plt.show()
+        else:
+            plt.draw()
 
     def plot_residuals_vs_offset(self, ax=None, outfile=None, markersize=2):
         """
@@ -227,6 +239,9 @@ class RayfanGroup(object):
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
         for rfn in self.rayfans:
             #ax.plot(rfn.azimuths, rfn.residuals, '.k', markersize=2)
             ax.scatter(rfn.offsets, rfn.residuals, c=rfn.azimuths,
@@ -236,8 +251,10 @@ class RayfanGroup(object):
         plt.xlim(0, 360)
         if outfile:
             fig.savefig(outfile)
-        else:
+        elif show:
             plt.show()
+        else:
+            plt.draw()
 
     def _get_all_azimuths(self):
         """

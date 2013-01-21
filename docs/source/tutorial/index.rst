@@ -10,5 +10,7 @@ introduce you to some of the noteable features of Rockfish.
 Introduction
 ------------
 
-:ref:`pickdatabase-tutorial` -- *How to setup and work with a pick database*
+:ref:`pickdatabase-tutorial` -- *Setup and work with a pick database*
+
+:ref:`tomography-tutorial` -- *Create velocity models, raytrace, and run tomographic inversions.*
 

@@ -159,3 +159,48 @@ class SEGYPickPlotter(SEGYPlotter):
                 self._activate_line(event)
                 return
         self.ACTIVE_LINES[event] = self.ax.plot(x, t, symbol)
+
+
+class VMPlotter(object):
+    """
+    Convience class for plotting VM models, rays, and traveltimes. 
+    """
+    def __init__(self, vm=None, rays=None, fig=None):
+        """
+        :param vm: Optional :class:`rockfish.tomography.model.VM` instance to
+            plot. Only plotted if given.
+        :param rays: Optional. :class:`rockfish.tomography.rayfan.RayfanGroup`
+            with raypaths and traveltimes to plot. Only plotted if given.
+        :param fig: Optional. :class:`matplotlib.pyplot.figure` instance to 
+            manage. Default is to create a new figure.
+        """
+        self.vm = vm
+        self.rays = rays
+        if fig is None:
+            self.fig = plt.figure()
+        else:
+            self.fig = fig
+
+    def plot2d(self, model=True, rays=True, times=True, show=True):
+        """
+        Plot a 2D velocity model, rays, and/or travel-times.
+
+        :param vm: Optional. :class:`rockfish.tomography.model.VM` instance
+            with a velocity model to plot. Only plotted if given.
+        """
+        self.fig.clf
+        if model and times:
+            rows = 2
+        else:
+            rows = 1
+        ax = self.fig.add_subplot(rows, 1, 1)
+        if model:
+            self.vm.plot(ax=ax)
+        if rays:
+            self.rays.plot_raypaths(ax=ax)
+        if times:
+            ax = self.fig.add_subplot(rows, 1, 2)
+            self.rays.plot_time_vs_position(ax=ax)
+            ax.set_xlim([self.vm.r1[0], self.vm.r2[0]])
+        if show:
+            self.fig.show()
