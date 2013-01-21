@@ -446,7 +446,7 @@ def readRayfanGroup(file, endian=ENDIAN):
     return rfn
 
 
-def rayfan2db(rayfan_file, raydb_file=':memory:', noise=None,
+def rayfan2db(rayfan_file, raydb_file=':memory:', synthetic=False, noise=None,
                   pickdb=None):
     """
     Read a rayfan file and store its data in a
@@ -456,6 +456,8 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', noise=None,
         assumed to be a filename of a rayfan binary file.
     :param raydb_file: The filename of the new database. Default is to create
         a new database in memory.
+    :param synthetic: Optional. Determines whether or not to record traced
+        traveltimes as picked traveltimes. Default is False.
     :param noise: Maximum amplitude of random noise to add the travel times.
         Default is to not add any noise.
     :param pickdb: Optional. An active
@@ -483,15 +485,25 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', noise=None,
                 event = pickdb.vmbranch2event[rfn.event_ids[i]]
             else:
                 event = rfn.event_ids[i]
+            if synthetic:
+                time = rfn.travel_times[i] + _noise
+                time_reduced = time
+                predicted = None
+                residual = 0.
+            else:
+                time = rfn.pick_times[i]
+                time_reduced = time
+                predicted = rfn.travel_times[i]
+                residual = rfn.residuals[i] 
             d = {'event': event,
                  'ensemble': rfn.start_point_id,
                  'vm_branch': rfn.event_ids[i],
                  'vm_subid': rfn.event_subids[i],
+                 'time' : time,
+                 'time_reduced' : time_reduced,
+                 'predicted' : predicted,
                  'trace': rfn.end_point_ids[i],
-                 'time': rfn.pick_times[i] + _noise,
-                 'time_reduced': rfn.pick_times[i] + _noise,
-                 'predicted': rfn.travel_times[i],
-                 'residual': rfn.residuals[i],
+                 'residual' : residual,
                  'error': rfn.pick_errors[i],
                  'source_x': sx, 'source_y': sy,
                  'source_z': rfn.paths[i][0][2],
@@ -499,8 +511,7 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', noise=None,
                  'receiver_z': rfn.endpoints[i][2],
                  'offset': rfn.offsets[i],
                  'faz': rfn.azimuths[i],
-                 'method': 'rayfan2pickdb({:}, {:}, noise={:})'\
-                    .format(rayfan_file, raydb_file, noise),
+                 'method': 'rayfan2db()',
                  'data_file': rays.file.name,
                  'ray_btm_x': rays.bottom_points[i][0],
                  'ray_btm_y': rays.bottom_points[i][1],
@@ -511,11 +522,12 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', noise=None,
                                         trace=[d['trace']])
                 if len(pick) > 0:
                     d['trace_in_file'] = pick[0]['trace_in_file']
+
             raydb.update_pick(**d)
         raydb.commit()
     ndb = raydb.execute('SELECT COUNT(rowid) FROM picks').fetchone()[0]
     if (ndb - ndb0) != rays.nrays:
         msg = 'Only added {:} of {:} travel times to the database.'\
-                .format(ntimes, ndb - ndb0)
+                .format(ndb - ndb0, rays.nrays)
         warnings.warn(msg)
     return raydb

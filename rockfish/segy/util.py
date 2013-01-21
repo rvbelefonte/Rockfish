@@ -44,8 +44,6 @@ def interpret_scalar(scalar):
         fac = float(abs(scalar))
     else:
         fac = float(1)
-    logging.debug("Interpreted scalar=%s as %s" %(scalar, fac))
-
     return fac
 
 def interpret_coordinate_scalar(scalar, units):
@@ -56,8 +54,6 @@ def interpret_coordinate_scalar(scalar, units):
     fac = interpret_scalar(scalar)
     if units == 2:
         fac = fac/3.6e3
-    logging.debug("Interpreted scalar=%s and coordinate units=%s as %s"
-                  %(scalar, units, fac))
     return fac
 
 def get_scaled_coordinate(header, attribute):

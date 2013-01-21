@@ -13,11 +13,6 @@ import logging
 from rockfish.picking.database import PickDatabaseConnection,\
     PickDatabaseConnectionError, PICK_FIELDS, EVENT_FIELDS, TRACE_FIELDS
 
-# XXX force debug
-#logging.basicConfig(level=logging.DEBUG,
-#    format='%(filename)s:%(funcName)s:%(levelname)s:%(message)s')
-
-
 # Benchmark data
 uniq_picks = []
 events = ['Pg', 'Pg', 'Pg', 'Pn']
@@ -196,6 +191,16 @@ class PickingTestCase(unittest.TestCase):
         # should return empty list for empty database
         pickdb = PickDatabaseConnection(':memory:')
         self.assertEqual(pickdb.events, [])
+
+    def test_copy(self):
+        """
+        Should create a copy of the database.
+        """
+        db0 = PickDatabaseConnection(':memory:')
+        for pick in uniq_picks:
+            db0.add_pick(**pick)
+        db1 = db0.copy()
+        self.assertEqual(db0.get_picks()[0], db1.get_picks()[0])
 
 
 def suite():

@@ -138,11 +138,13 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
             else:
                 self._remove_gain(type)
 
-    def plot_wiggles(self, sphinx=None, negative_fills=False,
+    def plot_wiggles(self, traces=None, sphinx=None, negative_fills=False,
                      positive_fills=True, wiggle_traces=False):
         """
         Plot trace wiggles.
         
+        :param traces: Optional. Traces to plot.  Default is to plot all 
+            traces.
         :param negative_fills: Optional. ``bool``.  If ``True``, draws
             negtive wiggle fills.  Default is ``False``.
         :param positive_fills: Optional. ``bool``.  If ``True``, draws
@@ -156,7 +158,8 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
         fig = plt.figure()
         ax = fig.add_subplot(111)
         splt = SEGYPlotter(ax, self)
-        splt.plot_wiggles(negative_fills=negative_fills,
+        splt.plot_wiggles(traces=traces,
+                          negative_fills=negative_fills,
                           positive_fills=positive_fills,
                           wiggle_traces=wiggle_traces)
         if sphinx:

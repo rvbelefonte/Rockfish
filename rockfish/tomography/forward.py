@@ -13,7 +13,7 @@ RAYTR_PROGRAM = 'slim_rays'
 def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
           grid_size=None, forward_star_size=[12, 12, 24], min_angle=0.5,
           min_velocity=1.4, max_node_size=620, top_layer=0, bottom_layer=None,
-          **kwargs):
+          stdout=None, stderr=None, **kwargs):
     """
     Wrapper for running the VM Tomography raytracer.
 
@@ -50,6 +50,12 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     :param bottom_layer: Optional. The index of the bottom-most layer to trace
         rays through. Default is the index of the bottom-most layer in the
         model.
+    :param stdout: Optional. Object to send standard out messages produced
+        by the raytracing program to. Default is to send messages to the
+        standard out.
+    :param stderr: Optional. Object to send standard error messages produced
+        by the raytracing program to. Default is to send messages to the
+        standard error.
     :param **kwargs: keyword=value arguments used to select picks to output
     """
     # Make the input files
@@ -123,7 +129,7 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
             raysize0 = os.path.getsize(rayfile)
         else:
             raysize0 = 0
-        subprocess.call(sh, shell=True)
+        subprocess.call(sh, shell=True, stdout=stdout, stderr=stderr)
         elapsed = (time.clock() - start)
         if os.path.isfile(rayfile):
             raysize1 = os.path.getsize(rayfile)
@@ -142,3 +148,8 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     else:
         msg = 'Did not create a rayfile.'
         warnings.warn(msg)
+    if cleanup:
+        try:
+            os.rmdir(input_dir)
+        except:
+            pass

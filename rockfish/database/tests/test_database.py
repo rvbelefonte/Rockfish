@@ -17,20 +17,20 @@ class DatabaseTestCase(unittest.TestCase):
         Connect should initiate a working sqlite3 connection and cursor.
         """
         # should connect to a database in memory
-        pickdb = RockfishDatabaseConnection(':memory:')
+        db = RockfishDatabaseConnection(':memory:')
         # no file should be created
         self.assertFalse(os.path.isfile(':memory:'))
         # should inherit from sqlite3.Connection
         for member in inspect.getmembers(sqlite3.Connection):
-            self.assertTrue(hasattr(pickdb, member[0]))
+            self.assertTrue(hasattr(db, member[0]))
         # should create a connection to a new file on the disk
         filename = 'temp.sqlite'
         if os.path.isfile(filename):
             os.remove(filename)
-        pickdb = RockfishDatabaseConnection('temp.sqlite')
+        db = RockfishDatabaseConnection('temp.sqlite')
         self.assertTrue(os.path.isfile(filename))
         # should connect to an existing file on the disk
-        pickdb = RockfishDatabaseConnection(filename)
+        db = RockfishDatabaseConnection(filename)
         # clean up
         os.remove(filename)
 

@@ -21,10 +21,12 @@ class SEGYPlotter(SEGYPlotManager):
         SEGYPlotManager.__init__(self, ax, segy, pickdb=None,
             trace_header_database=trace_header_database)
 
-    def plot_wiggles(self, force_new=False, **kwargs):
+    def plot_wiggles(self, force_new=False, traces=None, **kwargs):
         """
         Plots wiggle traces.
 
+        :param traces: Optional. Give a subset of traces to plot. Default is
+            to plot all traces.
         :param negative_fills: Optional. ``bool``.  If ``True``, draws or
             replaces negative wiggle fills.  If ``False``, removes any existing            negative wiggle fills.  Default is to leave negative fills 
             unchanged.
@@ -46,9 +48,11 @@ class SEGYPlotter(SEGYPlotManager):
         if True not in [plot_items[item] for item in plot_items]:
             # nothing to do here
             return
+        if traces is None:
+            traces = self.segy.traces
         # Collect plot data
         x_neg = []; x_pos = []; x_wig = []; t = []
-        for tr in self.segy.traces:
+        for tr in traces: 
             t += self.get_time_array(tr.header) + [None]
             xplt = self.get_header_value(tr.header, self.ABSCISSA_KEY)
             amp = self._get_scaled_trace_data(tr)

@@ -55,16 +55,10 @@ class SEGYSortingTestCase(unittest.TestCase):
             values.append([v for v in row])
             values[i].extend([i])
         correct = [row[:-1] for row in sorted(values)]
-        print correct
         result = [[tr.header.__getattribute__(self.attr1),
                    tr.header.__getattribute__(self.attr2)]\
                   for tr in self.sgy.traces]
         self.assertEqual(result,correct)
-
-        
-        
-
-
 
 
 def suite():

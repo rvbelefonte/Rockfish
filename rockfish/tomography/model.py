@@ -692,8 +692,12 @@ class VM(object):
         """
         if xmin is None:
             xmin = self.r1[0]
+        else:
+            xmin = max(self.r1[0], xmin)
         if xmax is None:
             xmax = self.r2[0]
+        else:
+            xmax = min(self.r2[0], xmax)
         return range(self.x2i([xmin])[0], self.x2i([xmax])[0] + 1)
 
     def y2i(self, y):
@@ -726,8 +730,12 @@ class VM(object):
         """
         if ymin is None:
             ymin = self.r1[1]
+        else:
+            ymin = max(self.r1[1], ymin)
         if ymax is None:
             ymax = self.r2[1]
+        else:
+            ymax = min(self.r2[1], ymax)
         return range(self.y2i([ymin])[0], self.y2i([ymax])[0] + 1)
 
     def z2i(self, z):
@@ -760,8 +768,12 @@ class VM(object):
         """
         if zmin is None:
             zmin = self.r1[1]
+        else:
+            zmin = max(self.r1[2], zmin)
         if zmax is None:
             zmax = self.r2[1]
+        else:
+            zmax = min(self.r2[2], zmax)
         return range(self.z2i([zmin])[0], self.z2i([zmax])[0] + 1)
 
     def gridpoint2position(self, ix, iy, iz):

@@ -15,7 +15,7 @@ PICK_FIELDS = [
           ('ensemble', 'INTEGER', None, True, True),
           ('trace', 'INTEGER', None, True, True),
           ('time', 'REAL', None, True, False),
-          ('time_reduced', 'REAL', None, True, False),
+          ('time_reduced', 'REAL', None, False, False),
           ('predicted', 'REAL', None, False, False),
           ('residual', 'REAL', None, False, False),
           ('error', 'REAL', 0.0, True, False),
@@ -456,3 +456,17 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
     vmtomo_picks = property(get_vmtomo_picks)
     vmtomo_shots = property(get_vmtomo_shots)
     vmtomo_inst = property(get_vmtomo_inst)
+
+    def copy(self, database=":memory:"):
+        """
+        Create a new copy of a database.
+        
+        :param database: Optional. Name of the new database. Default is to
+            create the new database in memory.
+        :returns: :class:`rockfish.picking.database.PickDatabaseConnection`
+        """
+        pickdb = PickDatabaseConnection(database)
+        for pick in self.get_picks():
+            pickdb.update_pick(**pick)
+        pickdb.commit()
+        return pickdb
