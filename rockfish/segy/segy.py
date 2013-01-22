@@ -94,9 +94,6 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
                     unpack_headers=unpack_headers, headonly=headonly,
                     unpack_data=unpack_data, scale_headers=scale_headers,
                     computed_headers=computed_headers)
-                                    
-        # Connect to pick database
-        # TODO do we want this here for convience?
 
     def copy(self, sgy, headonly=False):
         """
@@ -158,9 +155,7 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
         fig = plt.figure()
         ax = fig.add_subplot(111)
         splt = SEGYPlotter(ax, self)
-        splt.plot_wiggles(traces=traces,
-                          negative_fills=negative_fills,
-                          positive_fills=positive_fills,
+        splt.plot_wiggles(traces=traces, negative_fills=negative_fills,                                  positive_fills=positive_fills,
                           wiggle_traces=wiggle_traces)
         if sphinx:
             plt.draw()

@@ -78,7 +78,6 @@ class SEGYPlotter(SEGYPlotManager):
                 self.ax.plot(x_wig, t, color=self.WIGGLE_PEN_COLOR,
                              lw=self.WIGGLE_PEN_WIDTH)
 
-
     def _get_scaled_trace_data(self, tr):
         """
         Scale amplitudes according to plot parameters.
