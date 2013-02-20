@@ -21,6 +21,8 @@ import matplotlib.pyplot as plt
 from rockfish import __version__
 from rockfish.utils.string_tools import pad_string
 from rockfish.io import pack
+from rockfish.signals.smoothing import smooth1d, smooth2d
+
 
 ENDIAN = pack.BYTEORDER
 
@@ -143,6 +145,31 @@ class VM(object):
         Remove slowness jumps from the grid.
         """
         self.apply_jumps(remove=True)
+
+    def smooth_jumps(self, n, ny=None, idx=None):
+        """
+        Smooth slowness jumps by convolving a gaussian kernal of typical size
+        n.  The optional keyword argument ``ny`` allows for a different
+        size in the y direction.
+        :param n: Typical size of the guassian kernal.
+        :param ny: Optional. Specifies a different dimension for the smoothing
+            kernal in the y direction. Default is to set the y size equal to 
+            to the size in x.
+        :param idx: Optional. ``list`` of indices for interfaces to operate on
+            Default is operate on all interfaces.
+        """
+        if idx is None:
+            idx = range(0, self.nr)
+        n = min(self.nx, n)
+        if ny is None:
+            ny = n
+        ny = min(self.ny, ny)
+        for i in idx:
+            if ny == 1:
+                self.jp[i] = smooth1d(self.jp[i].flatten(), n)\
+                    .reshape((self.nx, 1))
+            else:
+                self.jp[i] = smooth2d(self.jp[i], n, ny=ny)
 
     def define_stretched_layer_velocities(self, idx, vel=[None, None],
                                           xmin=None, xmax=None, ymin=None,
@@ -899,7 +926,7 @@ class VM(object):
         assert ir.shape == (self.nx, self.ny)
         assert ij.shape == (self.nx, self.ny)
         # Insert arrays for new interface
-        if self.nr == 1:
+        if self.nr == 0:
             self.rf = np.asarray([rf])
             self.jp = np.asarray([jp])
             self.ir = np.asarray([ir])
@@ -1318,6 +1345,7 @@ class VM(object):
         extents = (self.r1[dims[0]], self.r2[dims[0]],
                    self.r1[dims[1]], self.r2[dims[1]])
         return sl, bounds, extents, labels
+
 
     # Properties
     def _get_nr(self):

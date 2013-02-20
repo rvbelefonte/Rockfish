@@ -91,7 +91,8 @@ class SEGYFFT():
         Timeshift data by phase shifting in the frequency domain.
 
         :param dtimes: List of the values for the timeshift in milliseconds 
-            for each trace.
+            for each trace.  If ``len(dtimes)==1``, the same time shift
+            is applied to all traces.
         :param traces: List of ``SEGYTrace`` objects with data to timeshift.
         """
         for i,tr in enumerate(traces):

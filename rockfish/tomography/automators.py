@@ -68,7 +68,7 @@ def chi2_reduce(input_vmfile, pickdb, pick_keys={}, inversion_params={},
         # Invert
         target_chi2 = chi2_0 - chi2_0 * chi2_reduction_per_step
         vmfile1 = update_model_id(vmfile0)
-        invert(vmfile0, rayfile, vmfile1, target_chi2=target_chi2,
+        invert(vmfile0, rayfile, vmfile1, target_chi_squared=target_chi2,
                **inversion_params)
         # Check for inversion output
         if not os.path.isfile(vmfile1):

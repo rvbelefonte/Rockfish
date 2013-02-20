@@ -19,7 +19,7 @@ def slant_time(sx, sy, sz, rx, ry, rz, v):
     r = np.sqrt(d ** 2 + h ** 2)
     return r / v
 
-def locate_on_surface(sx, sy, sz, twt, x, y, zz, v=1500):
+def locate_on_surface(sx, sy, sz, t, x, y, zz, v=1500):
     """
     Find best-fit location on a surface by grid search.
 
@@ -31,7 +31,7 @@ def locate_on_surface(sx, sy, sz, twt, x, y, zz, v=1500):
     :param sx: x coordinates for the traveltime observations.
     :param sy: y coordinates for the traveltime observations.
     :param sz: z coordinates for the traveltime observations.
-    :param twt: two-way traveltime observations
+    :param t: one-way traveltime observations
     :param x: Array of x coordinates for the surface.
     :param y: Array of y coordinates for the surface.
     :param zz: Surface depths given as an len(x) by len(y) sized
@@ -42,7 +42,7 @@ def locate_on_surface(sx, sy, sz, twt, x, y, zz, v=1500):
     """
     # Check sizes
     assert (len(sx) == len(sy)) and (len(sx) == len(sz))\
-            and (len(sx) == len(twt)),\
+            and (len(sx) == len(t)),\
             'Source position and time arrays must all be of the same size.'
     assert np.shape(zz) == (len(x), len(y)),\
             'shape(zz) must equal (len(x), len(y)).'
@@ -51,8 +51,8 @@ def locate_on_surface(sx, sy, sz, twt, x, y, zz, v=1500):
     pos = []
     for ix, _x in enumerate(x):
         for iy, _y in enumerate(y):
-            _t = 2. * slant_time(sx, sy, sz, _x, _y, zz[ix, iy], v=v)
-            rms.append(np.sqrt(np.sum(np.power(_t - twt, 2))))
+            _t = slant_time(sx, sy, sz, _x, _y, zz[ix, iy], v=v)
+            rms.append(np.sqrt(np.sum(np.power(_t - t, 2))))
             pos.append([_x, _y, zz[ix, iy]])
     i = np.argmin(rms)
     return pos[i] + [rms[i]]

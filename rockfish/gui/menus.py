@@ -1,8 +1,8 @@
 """
 Menus for the Rockfish applications.
 
-Individual menus are divided into separate classes to make it easier to pick and
-choose what menus to include in applications.
+Individual menus are divided into separate classes to make it easier to 
+pick and choose what menus to include in applications.
 """
 import os
 import logging
@@ -431,7 +431,7 @@ class PlotSegyPickingMenu(PlotSegyPlottingMenu,PlotSegyCursors):
                 'receiver_z':-tr.header.scaled_receiver_group_elevation,
                 'offset':tr.header.source_receiver_offset_in_m,
                 'data_file':self.segy.file.name,
-                'faz':tr.header.computed_azimuth_from_source_to_receiver}
+                'faz':tr.header.computed_azimuth_in_deg}
             self.pickdb.update_pick(**pick)
             self.pickdb.commit()
             self.SetStatusText('Added %s pick' % active_pick_event\

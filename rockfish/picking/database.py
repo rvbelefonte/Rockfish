@@ -6,6 +6,7 @@ import logging
 import matplotlib.pyplot as plt
 from rockfish.database.database import RockfishDatabaseConnection
 from rockfish.database.utils import format_row_factory, format_search
+from rockfish.segy.segy import readSEGY
 
 # Default tables and fields
 PICK_TABLE = 'picks'
@@ -470,3 +471,60 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             pickdb.update_pick(**pick)
         pickdb.commit()
         return pickdb
+
+
+def segy2db(segy, pickdb, events, vm_branches=None, vm_subids=None,
+            constant_values=None):
+    """
+    Create a pick database with picks for each trace in a SEG-Y file.
+
+    :param segy: :class:`rockfish.segy.segy.SEGYFile` instance or filename of 
+        a SEG-Y file.
+    :param pickdb: Open
+            :class:`rockfish.picking.database.PickDatabaseConnection` or
+            filename of a database to add picks to.
+    :param events: ``list`` of event names to add to the database for each 
+        trace.
+    :param vm_branches: ``dict`` of vm_branch values for each event
+    :param vm_branches: ``dict`` of vm_subid values for each event
+    :param constant_values: ``dict`` of field and values to assign to all
+        new picks.
+    :returns: :class:`rockfish.picking.database.PickDatabaseConnection`
+    """
+    if type(pickdb) is str:
+        pickdb = PickDatabaseConnection(pickdb)
+    if type(segy) is str:
+        segy = readSEGY(segy)
+    for i, tr in enumerate(segy.traces):
+        d = {'ensemble': tr.header.ensemble_number,
+             'trace' : tr.header.trace_number_within_the_ensemble,
+             'trace_in_file' : i,
+             'time' : 1e30,
+             'time_reduced' : 1e30,
+             'error': 0,
+             'source_x': tr.header.scaled_source_coordinate_x,
+             'source_y': tr.header.scaled_source_coordinate_y,
+             'source_z': - tr.header.scaled_source_depth_below_surface,
+             'receiver_x': tr.header.scaled_group_coordinate_x,
+             'receiver_y': tr.header.scaled_group_coordinate_y,
+             'receiver_z': tr.header.scaled_receiver_group_elevation,
+             'offset': tr.header.source_receiver_offset_in_m,
+             'faz': tr.header.computed_azimuth_in_deg,
+             'data_file' : segy.file.name,
+             'method': 'segy2db()'}
+        if constant_values is not None:
+            for k in constant_values:
+                d[k] = constant_values[k]
+        for event in events:
+            d['event'] = event
+            if vm_branches is not None:
+                d['vm_branch'] = vm_branches[event]
+            else:
+                d['vm_branch'] = 0
+            if vm_subids is not None:
+                d['vm_subids'] = vm_subids[event]
+            else:
+                d['vm_subids'] = 0 
+            pickdb.update_pick(**d)
+    pickdb.commit()
+    return pickdb

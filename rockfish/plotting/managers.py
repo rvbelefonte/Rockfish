@@ -32,7 +32,7 @@ class SEGYPlotManager(object):
         self.ACTIVE_PATCHES = {}
         self.INACTIVE_PATCHES = {}
         # General parameters
-        self.ABSCISSA_KEY = 'computed_source_receiver_offset_in_m'
+        self.ABSCISSA_KEY = 'source_receiver_offset_in_m'
         # Data plotting parameters
         self.GAIN = 5.0
         self.CLIP = 1.0 

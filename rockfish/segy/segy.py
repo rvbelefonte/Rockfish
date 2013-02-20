@@ -135,13 +135,16 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
             else:
                 self._remove_gain(type)
 
-    def plot_wiggles(self, traces=None, sphinx=None, negative_fills=False,
-                     positive_fills=True, wiggle_traces=False):
+    def plot_wiggles(self, traces=None, ax=None, sphinx=None, 
+                     negative_fills=False, positive_fills=True,
+                     wiggle_traces=False):
         """
         Plot trace wiggles.
         
         :param traces: Optional. Traces to plot.  Default is to plot all 
             traces.
+        :param ax: :class:`matplotlib.axes.Axes` to plot into.  Default is to
+            create and show a new plot.
         :param negative_fills: Optional. ``bool``.  If ``True``, draws
             negtive wiggle fills.  Default is ``False``.
         :param positive_fills: Optional. ``bool``.  If ``True``, draws
@@ -151,25 +154,30 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
         :param sphinx: ``bool``.  If ``True``, runs
             :meth:`matplotlib.pyplot.draw` so that a plot is generated for 
             inclusion in the Sphinx documentation.
+        :param ax: Optional. 
         """
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
         splt = SEGYPlotter(ax, self)
         splt.plot_wiggles(traces=traces, negative_fills=negative_fills,                                  positive_fills=positive_fills,
                           wiggle_traces=wiggle_traces)
-        if sphinx:
-            plt.draw()
-        else:
+        if show:
             plt.show()
+        else:
+            plt.draw()
 
-    def plot_fk_spectrum(self, traces=None, axes=None, log10=True, shift=True,
+    def plot_fk_spectrum(self, traces=None, ax=None, log10=True, shift=True,
                          sphinx=False):
         """
         Plot the frequency-wavenumber (f-k) spectrum of data.
 
         :param traces: Traces to plot f-k spectrum for.  Default is to plot
             spectrum for all traces.
-        :param axes: :class:`matplotlib.axes.Axes` to plot into.  Default is to
+        :param ax: :class:`matplotlib.axes.Axes` to plot into.  Default is to
             create and show a new plot.
         :param shift: ``bool``. If ``True``, runs :meth:`numpy.fft.fftshift` on
             the transformed data before plotting.  This places low-valued
@@ -180,10 +188,7 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
             :meth:`matplotlib.pyplot.draw` so that a plot is generated for 
             inclusion in the Sphinx documentation.
         """
-
-        if axes:
-            ax = axes
-        else:
+        if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
 

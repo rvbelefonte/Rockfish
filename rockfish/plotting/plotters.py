@@ -180,26 +180,47 @@ class VMPlotter(object):
         else:
             self.fig = fig
 
-    def plot2d(self, model=True, rays=True, times=True, show=True):
+    def plot2d(self, model=True, paths=True, traced=True, picked=True,
+               residuals=True, show=True):
         """
         Plot a 2D velocity model, rays, and/or travel-times.
 
-        :param vm: Optional. :class:`rockfish.tomography.model.VM` instance
-            with a velocity model to plot. Only plotted if given.
+        :param model: Optional. Determines whether or not to plot the velocity
+            model, if one exists. Default is ``True``.
+        :param paths: Optional. Determines whether or not to plot raypaths,
+            if they exist. Default is ``True``.
+        :param traced: Optional. Determines whether or not to plot raytraced 
+            travel times, if they exist. Default is ``True``.
+        :param picked: Optional. Determines whether or not to plot picked
+            travel times, if they exist. Default is ``True``.
+        :param residuals: Optional. Determines whether or not to residuals, if
+            they exist. Default is ``True``.
+        :returns: ``list`` of :class:`matplotlib.pyplot.Axes` that were 
+            created.
         """
         self.fig.clf
-        if model and times:
-            rows = 2
-        else:
-            rows = 1
-        ax = self.fig.add_subplot(rows, 1, 1)
-        if model:
-            self.vm.plot(ax=ax)
-        if rays:
-            self.rays.plot_raypaths(ax=ax)
-        if times:
-            ax = self.fig.add_subplot(rows, 1, 2)
-            self.rays.plot_time_vs_position(ax=ax)
-            ax.set_xlim([self.vm.r1[0], self.vm.r2[0]])
+        rows = 0
+        if (model and (self.vm is not None)) or \
+           (paths and (self.rays is not None)):
+            rows += 1
+        if (traced or picked) and (self.rays is not None):
+            rows += 1
+        if residuals and (self.rays is not None):
+            rows += 1
+        ax = [self.fig.add_subplot(rows, 1, 1)]
+        if model and (self.vm is not None):
+            self.vm.plot(ax=ax[-1])
+        if paths and (self.rays is not None):
+            self.rays.plot_raypaths(ax=ax[-1])
+        if (traced or picked) and (self.rays is not None):
+            ax.append(self.fig.add_subplot(rows, 1, 2))
+            self.rays.plot_time_vs_position(ax=ax[-1], traced=traced,
+                                            picked=picked)
+            ax[-1].set_xlim([self.vm.r1[0], self.vm.r2[0]])
+        if residuals and (self.rays is not None):
+            ax.append(self.fig.add_subplot(rows, 1, 3))
+            self.rays.plot_residual_vs_position(ax=ax[-1])
+            ax[-1].set_xlim([self.vm.r1[0], self.vm.r2[0]])
         if show:
             self.fig.show()
+        return ax

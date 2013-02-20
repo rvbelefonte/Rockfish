@@ -149,12 +149,58 @@ class RayfanGroup(object):
             plt.draw()
 
     def plot_time_vs_position(self, end='source', dimension='x',
-                              traced=True, predicted=True,
+                              traced=True, picked=True,
                               ax=None, outfile=None):
         """
-        Plot traveltimes in the rayfan vs. position.
+        Plot traveltimes in each rayfan vs. position.
 
-        :param end: Specifies which end of the raypath to plot as on the
+        :param end: Optional. Specifies which end of the raypath to plot as
+            on the abscissa.  Options are: 'source' (default) or 'receiver'.
+        :param dimension: Specifies which dimension of the raypath end to plot
+            on the abscissa. Options are: 'x' (default), 'y', or 'z'.
+        :param ax:  Optional. A :class:`matplotlib.Axes.axes` object to plot
+            into. Default is to create a new figure and axes.
+        :param traced: Optional. Determines whether or not to plot raytraced 
+            travel times, if they exist. Default is ``True``.
+        :param picked: Optional. Determines whether or not to plot picked
+            travel times, if they exist. Default is ``True``.
+        :param outfile: Output file string. Also used to automatically
+            determine the output format. Supported file formats depend on your
+            matplotlib backend. Most backends support png, pdf, ps, eps and
+            svg. Default is ``None``.
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
+        end_opts = {'source': 0, 'receiver': -1}
+        dim_opts = {'x': 0, 'y': 1, 'z': 2}
+        iend = end_opts[end]
+        idim = dim_opts[dimension]
+        for rfn in self.rayfans:
+            x = [p[iend][idim] for p in rfn.paths]
+            if picked:
+                ax.errorbar(x, rfn.pick_times, yerr=rfn.pick_errors,
+                            fmt='r.', markersize=0, capsize=0)
+            if traced:
+                ax.plot(x, rfn.travel_times, '.k', markersize=5)
+        plt.xlabel('{:} {:} (km)'.format(end, dimension))
+        plt.ylabel('t (s)')
+        if outfile:
+            fig.savefig(outfile)
+        elif show:
+            plt.show()
+        else:
+            plt.draw()
+
+    def plot_residual_vs_position(self, end='source', dimension='x',
+                                  ax=None, outfile=None):
+        """
+        Plot residuals in each rayfan vs. position.
+
+        :param end: Specifies which end of the raypath to plot on the
             abscissa.  Options are: 'source' (default) or 'receiver'.
         :param dimension: Specifies which dimension of the raypath end to plot
             on the abscissa. Options are: 'x' (default), 'y', or 'z'.
@@ -177,19 +223,17 @@ class RayfanGroup(object):
         idim = dim_opts[dimension]
         for rfn in self.rayfans:
             x = [p[iend][idim] for p in rfn.paths]
-            # pick times
-            ax.errorbar(x, rfn.pick_times, yerr=rfn.pick_errors,
-                        fmt='r.', markersize=0, capsize=0)
             # calculated times
-            ax.plot(x, rfn.travel_times, '.k', markersize=5)
+            ax.plot(x, rfn.residuals, '.k', markersize=5)
         plt.xlabel('{:} {:} (km)'.format(end, dimension))
-        plt.ylabel('t (s)')
+        plt.ylabel('Error (s)')
         if outfile:
             fig.savefig(outfile)
         elif show:
             plt.show()
         else:
             plt.draw()
+
 
     def plot_residuals_vs_azimuth(self, ax=None, outfile=None, markersize=2):
         """
