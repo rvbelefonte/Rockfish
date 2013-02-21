@@ -33,7 +33,8 @@ EVENT_FIELDS = [
           ('event', 'TEXT', None, True, True),
           ('vm_branch', 'INTEGER', None, False, False),
           ('vm_subid', 'INTEGER', None, 0, False),
-          ('plot_symbol', 'TEXT', '".r"', True, False)]
+          ('plot_symbol', 'TEXT', '"."', True, False),
+          ('plot_color', 'TEXT', '"r"', True, False)]
 
 TRACE_TABLE = 'traces'
 TRACE_FIELDS = [

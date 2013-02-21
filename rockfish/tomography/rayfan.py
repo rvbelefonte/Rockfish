@@ -5,6 +5,7 @@ import os
 import warnings
 from struct import unpack
 import matplotlib.pyplot as plt
+from rockfish.utils.dictlistutil import get_dict_default
 from rockfish.io import pack
 from rockfish.picking.database import PickDatabaseConnection
 import logging
@@ -12,6 +13,9 @@ import numpy as np
 
 ENDIAN = pack.BYTEORDER
 DEFAULT_RAYFAN_VERSION = 2
+DEFAULT_RAYPATH_COLOR = '0.75'
+DEFAULT_TRAVELTIME_COLOR = 'k'
+DEFAULT_RESIDUAL_COLOR = 'k'
 
 
 class RayfanError(Exception):
@@ -101,7 +105,8 @@ class RayfanGroup(object):
                                        rayfan_version=self.FORMAT))
 
     def plot_raypaths(self, dim=[0, 2], ax=None, receivers=True,
-                      sources=True, outfile=None):
+                      sources=True, outfile=None, event_colors={},
+                      default_color=DEFAULT_RAYPATH_COLOR):
         """
         Plot all raypaths.
 
@@ -116,7 +121,14 @@ class RayfanGroup(object):
         :param outfile: Output file string. Also used to automatically
             determine the output format. Supported file formats depend on your
             matplotlib backend. Most backends support png, pdf, ps, eps and
-            svg. Defaults is ``None``.
+            svg. Default is ``None``.
+        :param event_colors: Optional. Dictionary of event names and colors
+            to use for plotting raypaths for different events. If
+            ``event_colors`` is not given, or if an event ID is not in
+            ``event_colors``, raypaths are plotted in the color given by
+            ``default_color``.
+        :param default_color: Optional. Color to use when plotting raypaths
+            for events not in ``event_colors``.  Default is grey.
         """
         if ax is None:
             fig = plt.figure()
@@ -126,11 +138,13 @@ class RayfanGroup(object):
         else:
             reverse = False
             show = False
-        for rfn in self.rayfans:
+        for irfn, rfn in enumerate(self.rayfans):
             for i, path in enumerate(rfn.paths):
                 x = [p[dim[0]] for p in path]
                 y = [p[dim[1]] for p in path]
-                ax.plot(x, y, color='0.75')
+                c = get_dict_default(rfn.event_ids[i], event_colors,
+                                     default_color)
+                ax.plot(x, y, color=c)
                 if receivers:
                     x = rfn.paths[i][-1][dim[0]]
                     y = rfn.paths[i][-1][dim[1]]
@@ -150,7 +164,8 @@ class RayfanGroup(object):
 
     def plot_time_vs_position(self, end='source', dimension='x',
                               traced=True, picked=True,
-                              ax=None, outfile=None):
+                              ax=None, outfile=None, event_colors={},
+                              default_color=DEFAULT_TRAVELTIME_COLOR):
         """
         Plot traveltimes in each rayfan vs. position.
 
@@ -168,6 +183,13 @@ class RayfanGroup(object):
             determine the output format. Supported file formats depend on your
             matplotlib backend. Most backends support png, pdf, ps, eps and
             svg. Default is ``None``.
+        :param event_colors: Optional. Dictionary of event names and colors
+            to use for plotting traveltimes for different events. If
+            ``event_colors`` is not given, or if an event ID is not in
+            ``event_colors``, traveltimes are plotted in the color given by
+            ``default_color``.
+        :param default_color: Optional. Color to use when plotting traveltimes 
+            for events not in ``event_colors``.  Default is black.
         """
         if ax is None:
             fig = plt.figure()
@@ -182,10 +204,14 @@ class RayfanGroup(object):
         for rfn in self.rayfans:
             x = [p[iend][idim] for p in rfn.paths]
             if picked:
-                ax.errorbar(x, rfn.pick_times, yerr=rfn.pick_errors,
-                            fmt='r.', markersize=0, capsize=0)
+                for i, t in enumerate(rfn.pick_times):
+                    c = get_dict_default(rfn.event_ids[i], event_colors, default_color)
+                    ax.errorbar(x[i], t, yerr=rfn.pick_errors[i], fmt=c + '.',
+                                markersize=0, capsize=0)
             if traced:
-                ax.plot(x, rfn.travel_times, '.k', markersize=5)
+                for i, t in enumerate(rfn.travel_times):
+                    c = get_dict_default(rfn.event_ids[i], event_colors, default_color)
+                    ax.plot(x[i], t, '.' + c, markersize=5)
         plt.xlabel('{:} {:} (km)'.format(end, dimension))
         plt.ylabel('t (s)')
         if outfile:
@@ -196,7 +222,8 @@ class RayfanGroup(object):
             plt.draw()
 
     def plot_residual_vs_position(self, end='source', dimension='x',
-                                  ax=None, outfile=None):
+                                  ax=None, outfile=None, event_colors={},
+                              default_color=DEFAULT_RESIDUAL_COLOR):
         """
         Plot residuals in each rayfan vs. position.
 
@@ -210,6 +237,13 @@ class RayfanGroup(object):
             determine the output format. Supported file formats depend on your
             matplotlib backend. Most backends support png, pdf, ps, eps and
             svg. Default is ``None``.
+        :param event_colors: Optional. Dictionary of event names and colors
+            to use for plotting residuals for different events. If
+            ``event_colors`` is not given, or if an event ID is not in
+            ``event_colors``, residuals are plotted in the color given by
+            ``default_color``.
+        :param default_color: Optional. Color to use when plotting residuals 
+            for events not in ``event_colors``.  Default is black.
         """
         if ax is None:
             fig = plt.figure()
@@ -223,8 +257,9 @@ class RayfanGroup(object):
         idim = dim_opts[dimension]
         for rfn in self.rayfans:
             x = [p[iend][idim] for p in rfn.paths]
-            # calculated times
-            ax.plot(x, rfn.residuals, '.k', markersize=5)
+            for i, e in enumerate(rfn.residuals):
+                c = get_dict_default(rfn.event_ids[i], event_colors, default_color)
+                ax.plot(x[i], e, '.' + c, markersize=5)
         plt.xlabel('{:} {:} (km)'.format(end, dimension))
         plt.ylabel('Error (s)')
         if outfile:

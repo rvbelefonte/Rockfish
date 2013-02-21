@@ -2,6 +2,15 @@
 Utilities for manipulating dictionaries and lists.
 """
 
+def get_dict_default(key, dictionary, default):
+    """
+    Returns a value for a ``dict`` entry, or a default value. 
+    """
+    try:
+        return dictionary[key] 
+    except:
+        return default
+
 
 def dict_cat(a, b):
     """ Concatenate dictionaries `a` and `b`, giving preference to the values

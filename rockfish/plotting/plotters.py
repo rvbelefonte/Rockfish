@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from rockfish.plotting.managers import SEGYPlotManager
 import numpy as np
 
+
 class SEGYPlotter(SEGYPlotManager):
     """
     Convience class for plotting SEG-Y data. 
@@ -181,7 +182,7 @@ class VMPlotter(object):
             self.fig = fig
 
     def plot2d(self, model=True, paths=True, traced=True, picked=True,
-               residuals=True, show=True):
+               residuals=True, show=True, event_colors={}):
         """
         Plot a 2D velocity model, rays, and/or travel-times.
 
@@ -195,6 +196,11 @@ class VMPlotter(object):
             travel times, if they exist. Default is ``True``.
         :param residuals: Optional. Determines whether or not to residuals, if
             they exist. Default is ``True``.
+        :param event_colors: Optional. Dictionary of event names and colors
+            to use for plotting raypaths and times for different events. If
+            ``event_colors`` is not given, or if an event ID is not in
+            ``event_colors``.  Default is to plot raypaths in grey and
+            and times in black.
         :returns: ``list`` of :class:`matplotlib.pyplot.Axes` that were 
             created.
         """
@@ -211,15 +217,17 @@ class VMPlotter(object):
         if model and (self.vm is not None):
             self.vm.plot(ax=ax[-1])
         if paths and (self.rays is not None):
-            self.rays.plot_raypaths(ax=ax[-1])
+            self.rays.plot_raypaths(ax=ax[-1], event_colors=event_colors)
         if (traced or picked) and (self.rays is not None):
             ax.append(self.fig.add_subplot(rows, 1, 2))
             self.rays.plot_time_vs_position(ax=ax[-1], traced=traced,
-                                            picked=picked)
+                                            picked=picked,
+                                            event_colors=event_colors)
             ax[-1].set_xlim([self.vm.r1[0], self.vm.r2[0]])
         if residuals and (self.rays is not None):
             ax.append(self.fig.add_subplot(rows, 1, 3))
-            self.rays.plot_residual_vs_position(ax=ax[-1])
+            self.rays.plot_residual_vs_position(ax=ax[-1],
+                                                event_colors=event_colors)
             ax[-1].set_xlim([self.vm.r1[0], self.vm.r2[0]])
         if show:
             self.fig.show()
