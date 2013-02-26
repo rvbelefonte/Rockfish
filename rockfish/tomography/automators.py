@@ -13,10 +13,9 @@ class AutomatorError(Exception):
     """
     pass
 
-
 def chi2_reduce(input_vmfile, pickdb, pick_keys={}, inversion_params={},
                 final_chi2=1, chi2_reduction_per_step=0.1,
-                log_file=None, relax=False):
+                log_file=None, no_chi2_increase=False, verbose=True):
     """
     Reduce Chi^2 slowly by alternating between raytracing and inversion.
 
@@ -41,9 +40,11 @@ def chi2_reduce(input_vmfile, pickdb, pick_keys={}, inversion_params={},
         the fractional change in chi^2 over an inversion step is less than
         ``min_delta_chi2``, the smoothing and regularization parameters
         are relaxed by ``relaxation_per_step``. Default is ``0.01``.
-    :param relaxation_per_step: Fractional change in smoothing and
-        regularization parameters over a single step. Only used if
-        ``relax`` is True. Default is ``0.1``.
+    :param no_chi2_increase: Determines whether or not to stop if chi^2
+        increases between iterations. Default is ``False``.
+    :param verbose: Optional. Determines whether or not to print detailed
+        information from the raytracing program. Default is
+        ``True``.
     """
     # Set up log file
     if log_file is not None:
@@ -57,8 +58,11 @@ def chi2_reduce(input_vmfile, pickdb, pick_keys={}, inversion_params={},
     while chi2_0 > final_chi2:
         # Raytrace and get current chi^2
         rayfile = '.'.join(vmfile0.split('.vm')[0:-1]) + '.ray'
-        raytrace(vmfile0, pickdb, rayfile, **pick_keys)
+        raytrace(vmfile0, pickdb, rayfile, verbose=verbose, **pick_keys)
         rays = readRayfanGroup(rayfile)
+        if (rays.chi2 > chi2_0) and no_chi2_increase:
+            msg = 'chi^2 increasing.'
+            raise AutomatorError(msg)
         chi2_0 = rays.chi2
         # Update user
         msg = pad_string('Step {:d}'.format(istep), char='*')
@@ -67,6 +71,7 @@ def chi2_reduce(input_vmfile, pickdb, pick_keys={}, inversion_params={},
         print '*' * len(msg)
         # Invert
         target_chi2 = chi2_0 - chi2_0 * chi2_reduction_per_step
+        target_chi2 = max(target_chi2, final_chi2)
         vmfile1 = update_model_id(vmfile0)
         invert(vmfile0, rayfile, vmfile1, target_chi_squared=target_chi2,
                **inversion_params)

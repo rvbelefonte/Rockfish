@@ -182,7 +182,8 @@ class VMPlotter(object):
             self.fig = fig
 
     def plot2d(self, model=True, paths=True, traced=True, picked=True,
-               residuals=True, show=True, event_colors={}):
+               residuals=True, show=True, event_colors={},
+               vmin=None, vmax=None):
         """
         Plot a 2D velocity model, rays, and/or travel-times.
 
@@ -215,7 +216,7 @@ class VMPlotter(object):
             rows += 1
         ax = [self.fig.add_subplot(rows, 1, 1)]
         if model and (self.vm is not None):
-            self.vm.plot(ax=ax[-1])
+            self.vm.plot(ax=ax[-1], vmin=vmin, vmax=vmax)
         if paths and (self.rays is not None):
             self.rays.plot_raypaths(ax=ax[-1], event_colors=event_colors)
         if (traced or picked) and (self.rays is not None):

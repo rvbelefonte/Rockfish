@@ -14,10 +14,12 @@ indicates that a node is to be excluded from the inversion.
 import os
 import warnings
 import numpy as np
+from scipy.io import netcdf_file as netcdf
 from scipy.interpolate import interp1d, interp2d
 import datetime
 from struct import unpack
 import matplotlib.pyplot as plt
+import copy
 from rockfish import __version__
 from rockfish.utils.string_tools import pad_string
 from rockfish.io import pack
@@ -32,7 +34,8 @@ class VM(object):
     Class for working with VM Tomography velocity models.
     """
     def __init__(self, r1=(0, 0, 0), r2=(250, 0, 30),
-                         dx=0.5, dy=1, dz=0.1, nr=0,
+                         dx=0.5, dy=1, dz=0.1,
+                 nx=None, ny=None, nz=None, nr=0,
                  init_model=True):
         """
         Create a new model instance.
@@ -44,13 +47,46 @@ class VM(object):
         :param dx: Spacing between x-nodes. Default is ``0.5``.
         :param dy: Spacing between y-nodes. Default is ``1``.
         :param dz: Spacing between z-nodes. Default is ``0.1``.
+        :param nx: Number of nodes in the x direction.  Overides ``dx``.
+            Default is to use ``dx`` to calculate the number of nodes.
+        :param ny: Number of nodes in the y direction.  Overides ``dy``.
+            Default is to use ``dy`` to calculate the number of nodes.
+        :param nz: Number of nodes in the z direction.  Overides ``dz``.
+            Default is to use ``dz`` to calculate the number of nodes.
         :param nr: Number of interfaces in the model. Used to
             define the size of the interface arrays. Default is ``0``.
         :param init_model: Determines whether or not to initialize
             parameters and data arrays. Default is True.
         """
         if init_model:
-            self.init_model(r1, r2, dx, dy, dz, nr)
+            if nx is not None:
+                _dx = (r2[0] - r1[0]) / nx
+                if dx is not None:
+                    msg = 'Overiding dx={:} with dx={:} such that nx={:}.'\
+                            .format(dx, _dx, nx)
+                    warnings.warn(msg)
+            else:
+                _dx = dx
+
+            if ny is not None:
+                _dy = (r2[0] - r1[0]) / ny
+                if dy is not None:
+                    msg = 'Overiding dy={:} with dy={:} such that ny={:}.'\
+                            .format(dy, _dy, ny)
+                    warnings.warn(msg)
+            else:
+                _dy = dy
+
+            if nz is not None:
+                _dz = (r2[0] - r1[0]) / nz
+                if dz is not None:
+                    msg = 'Overiding dz={:} with dz={:} such that nz={:}.'\
+                            .format(dz, _dz, nz)
+                    warnings.warn(msg)
+            else:
+                _dz = dz
+
+            self.init_model(r1, r2, _dx, _dy, _dz, nr)
 
     def __str__(self, extended=False, title='Velocity Model'):
         """
@@ -63,19 +99,28 @@ class VM(object):
         """
         if (title is None) and hasattr(self, 'file'):
             title = os.path.basename(self.file.name)
-        banner = self.pad_string(title, char='=')
+        banner = pad_string(title, char='=')
         sng = banner + '\n'
-        sng += self._print_header()
+        sng += self._header()
         sng += banner
-        # TODO: write extended information
-        #if not extended:
-        #    sng += '\n[Use "print VM.__str__(extended=True)" for'
-        #    sng += ' more detailed information]'
+        if not extended:
+            sng += '\n[Use "print VM.__str__(extended=True)" for'
+            sng += ' more detailed information]'
+        else:
+            self.apply_jumps()
+            sng += '\nModel top: z = {:}\n'.format(self.r1[2])
+            for layer in range(0, self.nr):
+                sng += 'Interface {:}: zmin = {:}, zmax={:}\n'\
+                        .format(layer, np.min(self.rf[layer]),
+                                np.max(self.rf[layer]))
+                sng += '   ' + self._layer_info(layer) + '\n'
+            sng += 'Model bottom: z = {:}'.format(self.r2[2])
+            self.remove_jumps()
         return sng
 
-    def _print_header(self):
+    def _header(self):
         """
-        Format header values as plain-text.
+        Format header values as plain text.
         """
         sng = 'Grid Dimensions:\n'
         sng += ' xmin = {:7.3f}'.format(self.r1[0])
@@ -94,13 +139,20 @@ class VM(object):
         sng += ' nr = {:d}\n'.format(self.nr)
         return sng
 
-    def _print_layer_info(self, idx):
+    def _layer_info(self, layer):
         """
-        Print details about a layer.
+        Format layer information as plain text.
 
-        :param idx: Index of layer to get information for.
+        :param layer: Index of layer to get information for.
         """
-        raise NotImplementedError
+        idx = np.nonzero(self.layers.flatten() == layer)
+        sl = self.sl.flatten()
+        sng = 'Layer {:}: '.format(layer)
+        sng += 'smin = {:7.3f}'.format(min(sl[idx]))
+        sng += ', smax = {:7.3f}'.format(max(sl[idx]))
+        sng += ', vmin = {:7.3f}'.format(min(1./sl[idx]))
+        sng += ', vmax = {:7.3f}'.format(max(1./sl[idx]))
+        return sng
 
     def calculate_jumps(self, iref, xmin=None, xmax=None, ymin=None,
                         ymax=None):
@@ -123,28 +175,35 @@ class VM(object):
                 sl1 = self.sl[ix, iy, iz0 + 1]
                 self.jp[iref - 1][ix][iy] = sl1 - sl0
 
-    def apply_jumps(self, remove=False):
+    def apply_jumps(self, iref=None, remove=False):
         """
         Apply slowness jumps to the grid.
 
-        :param remove: Determines whether jumps should be removed or applied.
-            Default is ``False`` (i.e., jumps are applied).
+        :param iref: Optional. ``list`` of interface indices to apply jumps 
+            to. Default is to apply jumps to all interfaces.
+        :param remove: Optional. Determines whether jumps should be removed 
+            or applied. Default is ``False`` (i.e., jumps are applied).
         """
-        for iref in range(0, self.nr):
-            z0, _ = self.get_layer_bounds(iref + 1)
+        if iref is None:
+            iref = range(0, self.nr)
+        for _iref in iref:
+            z0, _ = self.get_layer_bounds(_iref + 1)
             for ix in range(0, self.nx):
                 for iy in range(0, self.ny):
                     iz0 = self.z2i([z0[ix, iy]])[0]
                     if remove is False:
-                        self.sl[ix, iy, iz0:] += self.jp[iref, ix, iy]
+                        self.sl[ix, iy, iz0:] += self.jp[_iref, ix, iy]
                     else:
-                        self.sl[ix, iy, iz0:] -= self.jp[iref, ix, iy]
+                        self.sl[ix, iy, iz0:] -= self.jp[_iref, ix, iy]
 
-    def remove_jumps(self):
+    def remove_jumps(self, iref=None):
         """
         Remove slowness jumps from the grid.
+        
+        :param iref: Optional. ``list`` of interface indices to remove jumps 
+            from. Default is to remove jumps from all interfaces.
         """
-        self.apply_jumps(remove=True)
+        self.apply_jumps(iref=iref, remove=True)
 
     def smooth_jumps(self, n, ny=None, idx=None):
         """
@@ -170,6 +229,29 @@ class VM(object):
                     .reshape((self.nx, 1))
             else:
                 self.jp[i] = smooth2d(self.jp[i], n, ny=ny)
+
+    def smooth_interface(self, iref, n, ny=None):
+        """
+        Smooth interface depth by convolving a gaussian kernal of typical size
+        n.  The optional keyword argument ``ny`` allows for a different
+        size in the y direction.
+        
+        :param iref: Index of interface to smooth.
+        :param n: Typical size of the guassian kernal.
+        :param ny: Optional. Specifies a different dimension for the smoothing
+            kernal in the y direction. Default is to set the y size equal to 
+            to the size in x.
+        """
+        n = min(self.nx, n)
+        if ny is None:
+            ny = n
+        ny = min(self.ny, ny)
+        if ny == 1:
+            self.rf[iref] = smooth1d(self.rf[iref].flatten(), n)\
+                .reshape((self.nx, 1))
+        else:
+            self.rf[iref] = smooth2d(self.rf[iref], n, ny=ny)
+
 
     def define_stretched_layer_velocities(self, idx, vel=[None, None],
                                           xmin=None, xmax=None, ymin=None,
@@ -876,17 +958,27 @@ class VM(object):
         vm.ij = np.asarray(vm.ij)
         return vm
 
-    def remove_interface(self, idx):
+    def remove_interface(self, iref, apply_jumps=False):
         """
         Remove an interface from the model.
 
-        :param idx: Index of the interface to remove.
+        :param iref: Index of the interface to remove.
+        :param apply_jumps: Optional. Determines whether or not to apply
+            slowness jumps for the interface before removing the interface.
+            Default is ``False``.
         """
-        self.rf = np.delete(self.rf, idx, 0)
-        self.jp = np.delete(self.jp, idx, 0)
-        self.ir = np.delete(self.ir, idx, 0)
-        self.ij = np.delete(self.ij, idx, 0)
-        print "Removed interface with index {:}.".format(idx)
+        if apply_jumps:
+            self.remove_jumps(iref=[iref])
+        self.rf = np.delete(self.rf, iref, 0)
+        self.jp = np.delete(self.jp, iref, 0)
+        self.ir = np.delete(self.ir, iref, 0)
+        self.ij = np.delete(self.ij, iref, 0)
+        for _iref in range(0, self.nr):
+            idx = np.nonzero(self.ir[_iref] >= iref)
+            self.ir[_iref][idx] -= 1
+            idx = np.nonzero(self.ij[_iref] >= iref)
+            self.ij[_iref][idx] -= 1
+        print "Removed interface with index {:}.".format(iref)
 
     def insert_interface(self, rf, jp=None, ir=None, ij=None):
         """
@@ -936,6 +1028,11 @@ class VM(object):
             self.jp = np.insert(self.jp, iref, jp, 0)
             self.ir = np.insert(self.ir, iref, ir, 0)
             self.ij = np.insert(self.ij, iref, ij, 0)
+        for _iref in range(0, self.nr):
+            idx = np.nonzero(self.ir[_iref] >= iref)
+            self.ir[_iref][idx] += 1
+            idx = np.nonzero(self.ij[_iref] >= iref)
+            self.ij[_iref][idx] += 1
         print "Added interface with index {:}.".format(iref)
 
     def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
@@ -953,9 +1050,10 @@ class VM(object):
         :param rf: Plot a thin black line for each reflector. Default is
             ``True``.
         :param ir: Plot bold white line for portion of reflector depths
-            that are active in the inversion (i.e., ir>0). Default is ``True``.
+            that are active in the inversion (i.e., ir>=1). Default is 
+            ``True``.
         :param ij: Plot bold white line for portion of reflector slowness
-            jumps that are active in the inversion (i.e., ij>0). Default is
+            jumps that are active in the inversion (i.e., ij>=0). Default is
             ``True``.
         :param apply_jumps: Determines whether or not to apply slowness jumps
             to the grid before plotting. Default is ``True``.
@@ -1134,10 +1232,10 @@ class VM(object):
             if rf:
                 ax.plot(self.x, self.rf[iref], '-k')
             if ir:
-                idx = np.nonzero(self.ir[iref].flatten() > 0)
+                idx = np.nonzero(self.ir[iref].flatten() >= 0)
                 ax.plot(self.x[idx], self.rf[iref][idx], '-w', linewidth=5)
             if ij:
-                idx = np.nonzero(self.ij[iref].flatten() > 0)
+                idx = np.nonzero(self.ij[iref].flatten() >= 0)
                 ax.plot(self.x[idx], self.rf[iref][idx], '-k', linewidth=3)
         plt.xlim(self.r1[0], self.r2[0])
         plt.ylim(self.r2[2], self.r1[2])
