@@ -44,7 +44,7 @@ def format_search(match_dict, list_op='OR', key_op='AND'):
     Format a dictionary of search terms into a SQLite search string.
 
     :param match_dict: Dictionary of keys and values to match.
-    :param list_op: Operator to use when combining multiple values for single
+    :param list_op: Operator to use when combining multiple values for a single
         key. Default is 'OR'.
     :param key_op: Operator to use when combining mulitple keys. Default is
         'AND'.

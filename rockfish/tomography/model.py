@@ -154,10 +154,10 @@ class VM(object):
         sng += ', vmax = {:7.3f}'.format(max(1./sl[idx]))
         return sng
 
-    def calculate_jumps(self, iref, xmin=None, xmax=None, ymin=None,
+    def recalculate_jumps(self, iref, xmin=None, xmax=None, ymin=None,
                         ymax=None):
         """
-        Calculate slowness jumps.
+        Recalculate slowness jumps.
 
         :param iref: Index of interface to calculate slowness jumps on.
         :param xmin, xmax: Set the x-coordinate limits for
@@ -454,11 +454,12 @@ class VM(object):
         self.dy = dy
         self.dz = dz
         # Initialize arrays to all zeros
-        self.sl = np.empty((nx, ny, nz))
-        self.rf = np.empty((nr, nx, ny))
-        self.jp = np.empty((nr, nx, ny))
-        self.ir = np.empty((nr, nx, ny))
-        self.ij = np.empty((nr, nx, ny))
+        self.sl = np.zeros((nx, ny, nz))
+        self.rf = np.zeros((nr, nx, ny))
+        self.jp = np.zeros((nr, nx, ny))
+        # Initialize flags as inactive
+        self.ir = -1 * np.ones((nr, nx, ny))
+        self.ij = -1 * np.ones((nr, nx, ny))
 
     def init_empty_model(self):
         """
@@ -1028,7 +1029,7 @@ class VM(object):
             self.jp = np.insert(self.jp, iref, jp, 0)
             self.ir = np.insert(self.ir, iref, ir, 0)
             self.ij = np.insert(self.ij, iref, ij, 0)
-        for _iref in range(0, self.nr):
+        for _iref in range(iref + 1, self.nr):
             idx = np.nonzero(self.ir[_iref] >= iref)
             self.ir[_iref][idx] += 1
             idx = np.nonzero(self.ij[_iref] >= iref)

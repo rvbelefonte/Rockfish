@@ -35,7 +35,7 @@ class SEGYPlotManager(object):
         self.ABSCISSA_KEY = 'source_receiver_offset_in_m'
         # Data plotting parameters
         self.GAIN = 5.0
-        self.CLIP = 1.0 
+        self.CLIP = 1.5 
         self.NORMALIZATION_METHOD = 'trace'
         self.OFFSET_GAIN_POWER = 1.8
         self.WIGGLE_PEN_COLOR = 'black'

@@ -92,17 +92,31 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
     class inherits from :class:`sqlite3.Connection`.
     """
     def __init__(self, database, *args, **kwargs):
+        # pull key words from kwargs that apply to this init only
+        if 'extra_pick_fields' in kwargs:
+            extra_pick_fields = kwargs.pop('extra_pick_fields')
+        else:
+            extra_pick_fields = None
+        if 'extra_trace_fields' in kwargs:
+            extra_trace_fields = kwargs.pop('extra_trace_fields')
+        else:
+            extra_trace_fields = None
+        if 'extra_event_fields' in kwargs:
+            extra_event_fields = kwargs.pop('extra_event_fields')
+        else:
+            extra_event_fields = None
+        # create the base instance
         RockfishDatabaseConnection.__init__(self, database, *args, **kwargs)
         # build tables
         self.PICK_TABLE = PICK_TABLE
         self.PICK_FIELDS = PICK_FIELDS
-        self.create_pick_table(extra_fields=None)
+        self.create_pick_table(extra_fields=extra_pick_fields)
         self.EVENT_TABLE = EVENT_TABLE
         self.EVENT_FIELDS = EVENT_FIELDS
-        self.create_event_table(extra_fields=None)
+        self.create_event_table(extra_fields=extra_event_fields)
         self.TRACE_TABLE = TRACE_TABLE
         self.TRACE_FIELDS = TRACE_FIELDS
-        self.create_trace_table(extra_fields=None)
+        self.create_trace_table(extra_fields=extra_trace_fields)
         # create views
         self.MASTER_VIEW = MASTER_VIEW
         self.VMTOMO_PICK_VIEW = VMTOMO_PICK_VIEW
@@ -125,7 +139,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         if extra_fields is not None:
             # update the pick field list with extra fields
-            self.PICK_FIELDS.extend(extra_fields)
+            for field in extra_fields:
+                self.PICK_FIELDS.extend([field])
         self._create_table_if_not_exists(self.PICK_TABLE, self.PICK_FIELDS)
 
     def create_event_table(self, extra_fields=None):
@@ -139,8 +154,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             ``Bool``)]``
         """
         if extra_fields is not None:
-            # update the pick field list with extra fields
-            self.EVENT_FIELDS.extend(extra_fields)
+            for field in extra_fields:
+                self.EVENT_FIELDS.extend([field])
         self._create_table_if_not_exists(self.EVENT_TABLE, self.EVENT_FIELDS)
 
     def create_trace_table(self, extra_fields=None):
@@ -154,7 +169,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             ``Bool``)]``
         """
         if extra_fields is not None:
-            self.TRACE_FIELDS.extend(extra_fields)
+            for field in extra_fields:
+                self.TRACE_FIELDS.extend([field])
         self._create_table_if_not_exists(self.TRACE_TABLE, self.TRACE_FIELDS)
 
     def create_views(self):

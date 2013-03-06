@@ -67,6 +67,26 @@ class vmTestCase(unittest.TestCase):
         # clean up
         os.remove(tmp)
 
+    def test_boundary_flags(self):
+        """
+        Should convert boundary flags from fortran to python index conventions
+        """
+        # read anymodel with interfaces
+        vm = readVM(get_example_file('jump1d.vm'))
+        # set all ir and ij flags to -1 (off)
+        vm.ir = -1 * np.ones(vm.ir.shape)
+        vm.ij = -1 * np.ones(vm.ij.shape)
+        # reading and writing should not change flag values 
+        tempvm = 'temp123.vm'
+        vm.write(tempvm)
+        vm = readVM(tempvm)
+        self.assertEqual(vm.ir.min(), -1)
+        self.assertEqual(vm.ir.max(), -1)
+        self.assertEqual(vm.ij.min(), -1)
+        self.assertEqual(vm.ij.max(), -1)
+        # cleanup
+        os.remove(tempvm)
+
     def test_x2i(self):
         """
         Should convert between x indices and coordinates and back
@@ -93,6 +113,35 @@ class vmTestCase(unittest.TestCase):
         z = vm.r1[1] + (vm.r2[1] - vm.r1[1]) / 2.
         iz = vm.z2i([z])
         self.assertEqual(z, vm.i2z(iz)[0])
+
+    def test_insert_interface(self):
+        """
+        Should insert an interface and handle setting flags correctly
+        """
+        # Initialize a new model
+        vm = VM(r1=(0, 0, 0), r2=(50, 0, 30), dx=0.5, dy=0.5, dz=0.5)
+        # Should add a new, flat interface at 10 km
+        z0 = 10.
+        vm.insert_interface(z0 * np.ones((vm.nx, vm.ny)))
+        self.assertEqual(vm.nr, 1)
+        self.assertEqual(vm.rf[0].min(), z0)
+        self.assertEqual(vm.rf[0].max(), z0)
+        # New interfaces should have jp=0
+        self.assertEqual(vm.jp[0].min(), 0)
+        self.assertEqual(vm.jp[0].max(), 0)
+        # New layers should have ir and ij = index of new interface
+        self.assertEqual(vm.ir[0].min(), 0)
+        self.assertEqual(vm.ir[0].max(), 0)
+        self.assertEqual(vm.ij[0].min(), 0)
+        self.assertEqual(vm.ij[0].max(), 0)
+        # Adding a new interface should increase ir and ij of deeper layers
+        z0 = 5.
+        vm.insert_interface(z0 * np.ones((vm.nx, vm.ny)))
+        for iref in range(0, vm.nr):
+            self.assertEqual(vm.ir[iref].min(), iref)
+            self.assertEqual(vm.ir[iref].max(), iref)
+            self.assertEqual(vm.ij[iref].min(), iref)
+            self.assertEqual(vm.ij[iref].max(), iref)
 
 
 def suite():

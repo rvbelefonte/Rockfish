@@ -92,14 +92,14 @@ ray_btm_z         real       z-coordinate for the   None
                              point
 ================= =========  ====================== =====================
 
-Other custom fields may be added to the database, but names should be 
-different from those in the tables above.  To add a custom field, 
-initiate the database with, for example:
+Other custom fields may be added to tables in the database, but names should 
+be different from those in the tables above.  To add a custom field to a
+new database, initiate the database with, for example:
 
->>> other_fields = [#(fieldname, sql_type, default or None, is primary)
->>>                  ('myfield1', 'TEXT', 'default_value1', False),
->>>                  ('myfield2', 'TEXT', 'default_value2', False)]
->>> pickdb = PickDatabaseConnection(':memory:',extra_pick_fields=other_fields)
+>>> other_fields = [#(name, sql_type, default_value, is_not_null, is_primary)
+>>>                  ('myfield1', 'TEXT', 'default_value1', False, False),
+>>>                  ('myfield2', 'TEXT', 'default_value2', False, False)]
+>>> pickdb = PickDatabaseConnection(':memory:', extra_pick_fields=other_fields)
 
 Events
 ------

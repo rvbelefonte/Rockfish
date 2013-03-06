@@ -36,8 +36,6 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     :param grid_size: Optional. ``(nx, ny, nz)`` tuple with dimensions for the
         graphing grid. Default is to match the graphing grid to the slowness
         model dimensions.
-        for the forward star. Default is (12, 12, 24). If model is 2D (ny = 1),
-        the y-dimension for the forward star is set to ``0``.
     :param min_angle: Optional. Minimum angle between search directions in
         forward star in degrees. Default is ``0.5``.
     :param min_velocity: Optional. Minimum velocity to trace rays through.
