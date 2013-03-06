@@ -56,11 +56,10 @@ class forwardTestCase(unittest.TestCase):
             zmax = max([p[2] for p in rfn.paths[0]])
             self.assertGreaterEqual(zmax, vm.rf[branch - 1][0][0])
 
-    # cleanup
-    if os.path.isfile(rayfile):
-        os.remove(rayfile)
-    if os.path.isfile(pickdbfile):
-        os.remove(pickdbfile)
+        # cleanup
+        for filename in [rayfile, pickdbfile]:
+            if os.path.isfile(filename):
+                os.remove(filename)
 
 
 def suite():
