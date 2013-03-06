@@ -135,13 +135,35 @@ class vmTestCase(unittest.TestCase):
         self.assertEqual(vm.ij[0].min(), 0)
         self.assertEqual(vm.ij[0].max(), 0)
         # Adding a new interface should increase ir and ij of deeper layers
-        z0 = 5.
-        vm.insert_interface(z0 * np.ones((vm.nx, vm.ny)))
-        for iref in range(0, vm.nr):
-            self.assertEqual(vm.ir[iref].min(), iref)
-            self.assertEqual(vm.ir[iref].max(), iref)
-            self.assertEqual(vm.ij[iref].min(), iref)
-            self.assertEqual(vm.ij[iref].max(), iref)
+        for z0 in [5., 15., 1., 20.]:
+            vm.insert_interface(z0 * np.ones((vm.nx, vm.ny)))
+            for iref in range(0, vm.nr):
+                self.assertEqual(vm.ir[iref].min(), iref)
+                self.assertEqual(vm.ir[iref].max(), iref)
+                self.assertEqual(vm.ij[iref].min(), iref)
+                self.assertEqual(vm.ij[iref].max(), iref)
+
+    def test_remove_interface(self):
+        """
+        Should remove an interface and handle setting flags correctly
+        """
+        # Initialize a new model
+        vm = VM(r1=(0, 0, 0), r2=(50, 0, 30), dx=0.5, dy=0.5, dz=0.5)
+        # Insert a set of interaces
+        nr = 0
+        for z0 in [1., 5., 10., 15., 20.]:
+            nr += 1
+            vm.insert_interface(z0 * np.ones((vm.nx, vm.ny)))
+        # Should remove interface and decrease ir and ij of deeper layers
+        for iref in range(0, nr):
+            vm.remove_interface(0)
+            nr -= 1
+            self.assertEqual(vm.nr, nr)
+            for _iref in range(0, vm.nr):
+                self.assertEqual(vm.ir[_iref].min(), _iref)
+                self.assertEqual(vm.ir[_iref].max(), _iref)
+                self.assertEqual(vm.ij[_iref].min(), _iref)
+                self.assertEqual(vm.ij[_iref].max(), _iref)
 
 
 def suite():

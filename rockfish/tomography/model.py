@@ -974,7 +974,7 @@ class VM(object):
         self.jp = np.delete(self.jp, iref, 0)
         self.ir = np.delete(self.ir, iref, 0)
         self.ij = np.delete(self.ij, iref, 0)
-        for _iref in range(0, self.nr):
+        for _iref in range(iref, self.nr):
             idx = np.nonzero(self.ir[_iref] >= iref)
             self.ir[_iref][idx] -= 1
             idx = np.nonzero(self.ij[_iref] >= iref)
