@@ -8,6 +8,12 @@ from rockfish.tomography.model import VM, readVM
 from rockfish.utils.loaders import get_example_file
 
 
+BENCHMARK_2D = 'benchmark2d.vm'
+TEST_2D_MODELS = ['jump1d.vm']
+TEST_3D_MODELS = ['pinchout3d.vm'] #XXX, 'cranis3d.vm']
+TEST_MODELS = TEST_2D_MODELS + TEST_3D_MODELS
+
+
 class vmTestCase(unittest.TestCase):
     """
     Test cases for the vmtools modules.
@@ -17,7 +23,8 @@ class vmTestCase(unittest.TestCase):
         Calling VM without any arguments should return an empty instance.
         """
         vm = VM()
-        for attr in ['dx', 'dy', 'dz', 'r1', 'r2', 'sl', 'rf', 'ir', 'ij']:
+        for attr in ['dx', 'dy', 'dz', 'r1', 'r2', 'sl', 'rf',
+                     'ir', 'ij']:
             self.assertTrue(hasattr(vm, attr))
 
     def compare_to_benchmark(self, vm):
@@ -53,7 +60,7 @@ class vmTestCase(unittest.TestCase):
         Reading and writing in the VM format should not change data.
         """
         # read data from the disk file
-        vmfile = get_example_file('goc_l26.15.00.vm')
+        vmfile = get_example_file(BENCHMARK_2D)
         vm = readVM(vmfile)
         # check values
         self.compare_to_benchmark(vm)
@@ -71,21 +78,22 @@ class vmTestCase(unittest.TestCase):
         """
         Should convert boundary flags from fortran to python index conventions
         """
-        # read anymodel with interfaces
-        vm = readVM(get_example_file('jump1d.vm'))
-        # set all ir and ij flags to -1 (off)
-        vm.ir = -1 * np.ones(vm.ir.shape)
-        vm.ij = -1 * np.ones(vm.ij.shape)
-        # reading and writing should not change flag values 
-        tempvm = 'temp123.vm'
-        vm.write(tempvm)
-        vm = readVM(tempvm)
-        self.assertEqual(vm.ir.min(), -1)
-        self.assertEqual(vm.ir.max(), -1)
-        self.assertEqual(vm.ij.min(), -1)
-        self.assertEqual(vm.ij.max(), -1)
-        # cleanup
-        os.remove(tempvm)
+        for model in TEST_MODELS:
+            # read anymodel with interfaces
+            vm = readVM(get_example_file(model))
+            # set all ir and ij flags to -1 (off)
+            vm.ir = -1 * np.ones(vm.ir.shape)
+            vm.ij = -1 * np.ones(vm.ij.shape)
+            # reading and writing should not change flag values 
+            tempvm = 'temp123.vm'
+            vm.write(tempvm)
+            vm = readVM(tempvm)
+            self.assertEqual(vm.ir.min(), -1)
+            self.assertEqual(vm.ir.max(), -1)
+            self.assertEqual(vm.ij.min(), -1)
+            self.assertEqual(vm.ij.max(), -1)
+            # cleanup
+            os.remove(tempvm)
 
     def test_x2i(self):
         """
@@ -169,7 +177,7 @@ class vmTestCase(unittest.TestCase):
         """
         Should fit a 1D velocity function to a layer.
         """
-        for model in ['cranis3d.vm', 'goc_l26.15.00.vm']:
+        for model in TEST_MODELS:
             vm = readVM(get_example_file(model))
             # should define constant velocities within layer
             for ilyr in range(vm.nr + 1):
@@ -182,7 +190,7 @@ class vmTestCase(unittest.TestCase):
         """
         Should insert velocities into a layer.
         """
-        for model in ['cranis3d.vm', 'goc_l26.15.00.vm']:
+        for model in TEST_MODELS:
             vm = readVM(get_example_file(model))
             # should define constant velocities within layer
             for ilyr in range(vm.nr + 1):
@@ -192,6 +200,62 @@ class vmTestCase(unittest.TestCase):
                 self.assertEqual(np.nanmax(vm.sl), 10)
                 self.assertEqual(np.nanmin(vm.sl), 10)
 
+    def test__get_layers(self):
+        """
+        Should return the layer index of each node on the grid.
+        """
+        for model in TEST_MODELS:
+            vm = readVM(get_example_file(model))
+            layers = vm._get_layers()
+            # should have an entry for each node
+            self.assertEqual(layers.shape, (vm.nx, vm.ny, vm.nz))
+            # should have nodes in each layer
+            # assuming no complete pinchouts
+            self.assertEqual(len(np.unique(layers)), vm.nr + 1)
+
+    def test_get_layer_bounds(self):
+        """
+        Should return arrays with layer top and bottom bounding surfaces
+        """
+        # Create a simple 3D model
+        r1=(0, 0, 0)
+        r2=(50, 50, 20)
+        vm = VM(r1=r1, r2=r2, dx=2, dy=2, dz=0.2)
+        # Should have no layers
+        self.assertEqual(vm.nr, 0)
+        # Should return model top and bottom
+        z0, z1 = vm.get_layer_bounds(0)
+        self.assertEqual(z0.shape, (vm.nx, vm.ny))
+        self.assertEqual(z1.shape, (vm.nx, vm.ny))
+        self.assertEqual(z0.min(), r1[2])
+        self.assertEqual(z0.max(), r1[2])
+        self.assertEqual(z1.min(), r2[2])
+        self.assertEqual(z1.max(), r2[2])
+        # Insert an interfce and get bounds again
+        _z = 5.
+        vm.insert_interface(_z * np.ones((vm.nx, vm.ny)))
+        # Top layer should be between r1[2] and _z 
+        z0, z1 = vm.get_layer_bounds(0)
+        self.assertEqual(z0.min(), r1[2])
+        self.assertEqual(z0.max(), r1[2])
+        self.assertEqual(z1.min(), _z)
+        self.assertEqual(z1.max(), _z)
+        # Bottom layer should be between _z and r2[2]
+        z0, z1 = vm.get_layer_bounds(1)
+        self.assertEqual(z0.min(), _z)
+        self.assertEqual(z0.max(), _z)
+        self.assertEqual(z1.min(), r2[2])
+        self.assertEqual(z1.max(), r2[2])
+        # Should handle pinchouts
+        _z1 = 2 * _z
+        iref = vm.insert_interface(_z1 * np.ones((vm.nx, vm.ny)))
+        ix = vm.xrange2i(0, 25)
+        vm.rf[iref, ix, :] = vm.rf[iref - 1, ix, :]
+        z0, z1 = vm.get_layer_bounds(1)
+        self.assertEqual(z0.min(), _z)
+        self.assertEqual(z0.max(), _z)
+        self.assertEqual(z1.min(), _z)
+        self.assertEqual(z1.max(), _z1)
 
 
 

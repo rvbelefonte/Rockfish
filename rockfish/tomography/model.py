@@ -908,6 +908,8 @@ class VM(object):
         :param dx: Grid spacing for the new model. Default is to use
             the x-coordinate spacing of the current model.
         :returns: VM model along the specified line
+
+        .. warning:: Fails with constant x-slices.
         """
         assert len(x) == len(y), 'x and y must be the same length'
         assert max(x) <= self.r2[0], 'x coordinates exceed model domain'
@@ -987,8 +989,8 @@ class VM(object):
         :param rf: Interface depths given as a Numpy array_like object with
             shape ``(nx, ny)``.
         :param jp: Slowness jumps given as a Numpy array_like object
-            with shape ``(nx, ny)``. Default is to set the slowness jump for
-            all nodes on the new interface to zero.
+            with shape ``(nx, ny)``. Default is to set the slowness jump
+            for all nodes on the new interface to zero.
         :param ir: Indices of the interfaces to use in the inversion
             for interface depths, given as a Numpy array_like object
             with shape ``(nx, ny)``. A ``-1`` value indicates that a node
@@ -1523,14 +1525,14 @@ class VM(object):
         """
         Returns a grid of layer indices for each node in the slowness grid.
         """
-        lyr = np.ones((self.nx, self.ny, self.nz)) * self.nr
-        for iref in range(0, self.nr):
+        lyr = np.ones((self.nx, self.ny, self.nz))
+        for iref in range(0, self.nr + 1):
             # top, bottom boundary depths for current layer
             z0, z1 = self.get_layer_bounds(iref)
             for ix in range(0, self.nx):
                 for iy in range(0, self.ny):
-                    iz0, iz1 = self.z2i((z0[ix, iy], z1[ix, iy]))
-                    lyr[ix, iy, iz0:iz1] = iref
+                    iz = self.zrange2i(z0[ix, iy], z1[ix, iy])
+                    lyr[ix, iy, iz] = iref
         return lyr
     layers = property(fget=_get_layers)
 
