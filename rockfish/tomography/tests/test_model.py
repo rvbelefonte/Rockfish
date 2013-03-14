@@ -164,6 +164,35 @@ class vmTestCase(unittest.TestCase):
                 self.assertEqual(vm.ir[_iref].max(), _iref)
                 self.assertEqual(vm.ij[_iref].min(), _iref)
                 self.assertEqual(vm.ij[_iref].max(), _iref)
+    
+    def test_define_stretched_layer_velocities(self):
+        """
+        Should fit a 1D velocity function to a layer.
+        """
+        for model in ['cranis3d.vm', 'goc_l26.15.00.vm']:
+            vm = readVM(get_example_file(model))
+            # should define constant velocities within layer
+            for ilyr in range(vm.nr + 1):
+                vm.sl = np.nan * np.ones((vm.nx, vm.ny, vm.nz))
+                vm.define_stretched_layer_velocities(ilyr, [10])
+                self.assertEqual(np.nanmax(vm.sl), 1./10)
+                self.assertEqual(np.nanmin(vm.sl), 1./10)
+
+    def test_insert_layer_velocities(self):
+        """
+        Should insert velocities into a layer.
+        """
+        for model in ['cranis3d.vm', 'goc_l26.15.00.vm']:
+            vm = readVM(get_example_file(model))
+            # should define constant velocities within layer
+            for ilyr in range(vm.nr + 1):
+                vm.sl = np.nan * np.ones((vm.nx, vm.ny, vm.nz))
+                sl = 10 * np.ones((vm.nx, vm.ny, vm.nz))
+                vm.insert_layer_velocities(ilyr, sl, is_slowness=True)
+                self.assertEqual(np.nanmax(vm.sl), 10)
+                self.assertEqual(np.nanmin(vm.sl), 10)
+
+
 
 
 def suite():

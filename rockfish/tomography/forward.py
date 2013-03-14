@@ -155,7 +155,6 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
         warnings.warn(msg)
 
 
-
 def raytrace(vmfile, pickdb, rayfile, pick_keys={}, input_dir='forward',
              cleanup=True, grid_size=None, forward_star_size=[12, 12, 24],
              min_angle=0.5, min_velocity=1.4, max_node_size=620,
