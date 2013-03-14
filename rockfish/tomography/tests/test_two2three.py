@@ -3,11 +3,12 @@ Test case for the two2three module.
 """
 import unittest
 import numpy as np
-from rockfish.tomography.model import readVM
+from rockfish.tomography.model import VM, readVM
 from rockfish.utils.loaders import get_example_file
-from rockfish.tomography.two2three import project_point, two2three
+from rockfish.tomography.two2three import project_point,\
+        project_model_points, project_layer_velocities, two2three
 
-TEST_MODELS = ['goc_l26.15.00.vm', 'CRAnis.NorthEast.00.00.vm']
+TEST_MODELS = ['benchmark2d.vm']
 
 
 class two2threeTestCase(unittest.TestCase):
@@ -42,6 +43,49 @@ class two2threeTestCase(unittest.TestCase):
             self.assertEqual(xp[i], _xp)
             self.assertEqual(yp[i], _yp)
 
+    def test_project_model_points(self):
+        """
+        Should map 2d model points to points in the 3d model.
+        """
+        phi = 30.
+        vm3d = VM(r1=(100, 200, 0), r2=(500, 300, 30), dx=5, dy=5, dz=1)
+        for model in TEST_MODELS:
+            vm2d = readVM(get_example_file(model))
+            # default should return valid coordinates
+            x = project_model_points(vm2d, vm3d, phi)
+            self.assertTrue(np.min(x) >= vm2d.r1[0])
+            self.assertTrue(np.max(x) <= vm2d.r2[0])
+            # indices = True should return valid indices
+            ix = project_model_points(vm2d, vm3d, phi)
+            self.assertTrue(np.min(ix) >= 0)
+            self.assertTrue(np.max(ix) <= vm2d.nx)
+
+    def dev_project_layer_velocities(self):
+        """
+        Should map 2D model velocities to a 3D model.
+        """
+        # Create a simple 2D model with sl set to layer IDs
+        vm2d = VM(r1=(-2, 0, -2), r2=(50, 0, 30), dx=1, dy=1, dz=1)
+        z = 3 + vm2d.x * 0.1
+        vm2d.insert_interface([[_z] for _z in z])
+        vm2d.insert_interface(10)
+        z = 22 + vm2d.x * -0.1
+        vm2d.insert_interface([[_z] for _z in z])
+        vm2d.sl = vm2d.layers
+        # Project into a 3D model
+        phi = 30
+        vm3d = VM(r1=(10, 1, -2), r2=(20, 20, 30), dx=1, dy=1, dz=1)
+        vm3d.insert_interface(5)
+        vm3d.insert_interface(10)
+        vm3d.insert_interface(20)
+        for ilyr in range(vm2d.nr + 1):
+            project_layer_velocities(vm2d, vm3d, phi, ilyr)
+        # Layers should only include values from the same 2d layers
+        for ilyr in range(vm2d.nr + 1):
+            idx = np.nonzero(vm3d.layers == ilyr)
+            self.assertEqual(vm3d.sl[idx].min(), ilyr)
+
+
     def test_two2three(self, sol=(0, 0), theta=39):
         """
         Should create a 3D model from a 2D model.
@@ -75,7 +119,7 @@ class two2threeTestCase(unittest.TestCase):
 
 
 def suite():
-    return unittest.makeSuite(two2threeTestCase, 'test')
+    return unittest.makeSuite(two2threeTestCase, 'dev')
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

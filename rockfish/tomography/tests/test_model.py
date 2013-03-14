@@ -171,6 +171,13 @@ class vmTestCase(unittest.TestCase):
                 self.assertEqual(vm.ir[iref].max(), iref)
                 self.assertEqual(vm.ij[iref].min(), iref)
                 self.assertEqual(vm.ij[iref].max(), iref)
+        # should take a scalar value for a constant depth interface
+        vm = VM(r1=(0, 0, 0), r2=(50, 0, 30), dx=0.5, dy=0.5, dz=0.5)
+        z0 = 10.
+        vm.insert_interface(z0)
+        self.assertEqual(vm.nr, 1)
+        self.assertEqual(vm.rf[0].min(), z0)
+        self.assertEqual(vm.rf[0].max(), z0)
 
     def test_remove_interface(self):
         """

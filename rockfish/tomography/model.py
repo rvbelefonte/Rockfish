@@ -33,10 +33,8 @@ class VM(object):
     """
     Class for working with VM Tomography velocity models.
     """
-    def __init__(self, r1=(0, 0, 0), r2=(250, 0, 30),
-                         dx=0.5, dy=1, dz=0.1,
-                 nx=None, ny=None, nz=None, nr=0,
-                 init_model=True):
+    def __init__(self, r1=(0, 0, 0), r2=(250, 0, 30), dx=0.5, dy=1, dz=0.1,
+                 nx=None, ny=None, nz=None, nr=0, init_model=True):
         """
         Create a new model instance.
 
@@ -420,6 +418,8 @@ class VM(object):
         :param idx: Index of layer of interest.
         :returns: z0, z1 arrays of top, bottom interface depths.
         """
+        assert (ilyr >= 0) and (ilyr <= self.nr),\
+            "Layer {:} does not exist.".format(ilyr)
         if ilyr == 0:
             z0 = np.ones((self.nx, self.ny)) * self.r1[2]
         else:
@@ -984,24 +984,38 @@ class VM(object):
 
     def insert_interface(self, rf, jp=None, ir=None, ij=None):
         """
-        Insert an interface.
+        Insert a new interface into the model.
 
-        :param rf: Interface depths given as a Numpy array_like object with
-            shape ``(nx, ny)``.
-        :param jp: Slowness jumps given as a Numpy array_like object
-            with shape ``(nx, ny)``. Default is to set the slowness jump
-            for all nodes on the new interface to zero.
-        :param ir: Indices of the interfaces to use in the inversion
-            for interface depths, given as a Numpy array_like object
-            with shape ``(nx, ny)``. A ``-1`` value indicates that a node
-            should not be used in the inversion. Default is to assign all
-            nodes to the index of the new interface.
-        :param ij: Indices of the interfaces to use in the inversion
-            for slowness jumps, given as a Numpy array_like object
-            with shape ``(nx, ny)``. A ``-1`` value indicates that a node
-            should not be used in the inversion. Default is to assign all
-            nodes to the index of the new interface.
+        Parameters
+        ----------
+        rf : {scalar, array_like}
+            Constant depth or matrix of depths with shape ``(nx, ny)``.
+        jp : {scalar, array_like, None}, optional
+            Constant slowness jumps, matrix of depths with shape
+            ``(nx, ny)``, or None. If None (default), jumps are set to zero.
+        ir : {scalar, array_like, None}, optional
+            Sets indices of the interface to use in the inversion
+            for interface depths at each interface node. A value of ``-1``
+            indicates that a node should not be used in the inversion. 
+            Can be a scalar value that is copied to all nodes, a matrix of
+            with shape ``(nx, ny)``, or None. If None (default), all
+            values are set to the index of the new interface.
+        ij : {scalar, array_like, None}, optional
+            Sets indices of the interface to use in the inversion
+            for slowness jumps at each interface node. A value of ``-1``
+            indicates that a node should not be used in the inversion. 
+            Can be a scalar value to be copied to all nodes, a matrix
+            with shape ``(nx, ny)``, or None. If None (default), all
+            values are set to the index of the new interface.
+
+        Returns
+        -------
+        iref : int
+            Index of the new interface.
         """
+        # Expand scalar depth value to array
+        if np.asarray(rf).size == 1:
+            rf *= np.ones((self.nx, self.ny))
         # Determine index for new interface
         iref = 0
         for _iref in range(0, self.nr):
@@ -1014,6 +1028,13 @@ class VM(object):
             ir = iref * np.ones((self.nx, self.ny))
         if ij is None:
             ij = iref * np.ones((self.nx, self.ny))
+        # Expand jump and flag arrays if scalars
+        if np.asarray(jp).size == 1:
+            jp *= np.ones((self.nx, self.ny))
+        if np.asarray(ir).size == 1:
+            ir *= np.ones((self.nx, self.ny))
+        if np.asarray(ij).size == 1:
+            ij *= np.ones((self.nx, self.ny))
         # Check for proper dimensions
         for v in [rf, jp, ir, ij]:
             assert np.asarray(v).shape == (self.nx, self.ny),\
@@ -1526,7 +1547,7 @@ class VM(object):
         Returns a grid of layer indices for each node in the slowness grid.
         """
         lyr = np.ones((self.nx, self.ny, self.nz))
-        for iref in range(0, self.nr + 1):
+        for iref in range(self.nr + 1):
             # top, bottom boundary depths for current layer
             z0, z1 = self.get_layer_bounds(iref)
             for ix in range(0, self.nx):

@@ -67,9 +67,13 @@ def project_model_points(vm2d, vm3d, phi, indices=False):
         return x_2d
 
 
-def project_layer_velocities(vm2d, vm3d, phi, ilyr_3d, ilyr_2d=None):
+def project_layer_velocities(vm2d, vm3d, phi, ilyr_3d, ilyr_2d=None,
+                             method='stretch'):
     """
     Project velocities from a 2D model into a 3D model.
+
+    At each x, y position,  velocities from the 2D layer are stretched 
+    (or compressed) in the vertical direction to fit into the 3D layer.
 
     Parameters
     ----------
