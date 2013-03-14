@@ -253,7 +253,7 @@ class VM(object):
             self.rf[iref] = smooth2d(self.rf[iref], n, ny=ny)
 
 
-    def define_stretched_layer_velocities(self, idx, vel=[None, None],
+    def define_stretched_layer_velocities(self, ilyr, vel=[None, None],
                                           xmin=None, xmax=None, ymin=None,
                                           ymax=None, kind='linear'):
         """
@@ -264,7 +264,7 @@ class VM(object):
         Then, this z,v function is used to interpolate velocities for each
         depth node in the layer.
 
-        :param idx: Index of layer to work on.
+        :param ilyr: Index of layer to work on.
         :param vel: ``list`` of layer velocities. Default is to
             stretch a 1d function between the deepest velocity of the overlying
             layer and the shallowest velocity of the underlying layer.
@@ -281,7 +281,7 @@ class VM(object):
             Default is 'linear'.
         """
         # Get layer boundary depths
-        z0, z1 = self.get_layer_bounds(idx)
+        z0, z1 = self.get_layer_bounds(ilyr)
         # Define velocity function at each x,y point
         vel = np.asarray(vel)
         nvel = len(vel)
@@ -320,11 +320,11 @@ class VM(object):
                     v = zv(z)
                 self.sl[ix, iy, iz0:iz1] = 1. / v
 
-    def insert_layer_velocities(self, idx, vel, is_slowness=False):
+    def insert_layer_velocities(self, ilyr, vel, is_slowness=False):
         """
         Insert a grid of velocities for a single layer.
 
-        :param idx: Index of layer to work on.
+        :param ilyr: Index of layer to work on.
         :param vel: :class:`numpy.ndarray` with shape (nx, ny, nz) containing
             velocities to insert.
         :param is_slowness: Determines whether ``vel`` contains velocities
@@ -332,18 +332,18 @@ class VM(object):
         """
         assert vel.shape == (self.nx, self.ny, self.nz),\
                 'vel must be of shape (nx, ny, nz)'
-        isl = np.nonzero(self.layers == idx)
+        isl = np.nonzero(self.layers == ilyr)
         if is_slowness:
             self.sl[isl] = vel[isl]
         else:
             self.sl[isl] = 1. / vel[isl]
 
-    def define_constant_layer_velocity(self, idx, v, xmin=None,
+    def define_constant_layer_velocity(self, ilyr, v, xmin=None,
                                           xmax=None, ymin=None, ymax=None):
         """
         Define a constant velocity for an entire layer.
 
-        :param idx: Index of layer to work on.
+        :param ilyr: Index of layer to work on.
         :param v: Velocity.
         :param xmin, xmax: Set the x-coordinate limits for modifying
             velocities. Default is to change velocities over the entire
@@ -352,22 +352,22 @@ class VM(object):
             velocities. Default is to change velocities over the entire
             y-domain.
         """
-        self.define_stretched_layer_velocities(idx, [v], xmin=xmin, xmax=xmax,
+        self.define_stretched_layer_velocities(ilyr, [v], xmin=xmin, xmax=xmax,
                                               ymin=ymin, ymax=ymax)
 
-    def define_variable_layer_gradient(self, idx, dvdz, v0=None):
+    def define_variable_layer_gradient(self, ilyr, dvdz, v0=None):
         """
         Replace velocities within a layer by defining a gtradient that
         varies linearly in the horizontal directions.
 
-        :param idx: Index of layer to work on.
+        :param ilyr: Index of layer to work on.
         :param dvdz: List of velocity gradient values. Must be of shape
             (nx, ny).
         :param v0: List of velocities at the top of the layer. Must be of
             shape (nx, ny). Default is to use the value at the
             base of the overlying layer.
         """
-        z0, z1 = self.get_layer_bounds(idx)
+        z0, z1 = self.get_layer_bounds(ilyr)
         for ix in range(0, self.nx):
             for iy in range(0, self.ny):
                 iz0, iz1 = self.z2i((z0[ix, iy], z1[ix, iy]))
@@ -382,12 +382,12 @@ class VM(object):
                     _v0 = v0[ix, iy]
                 self.sl[ix, iy, iz0:iz1] = 1. / (_v0 + z * dvdz[ix, iy])
 
-    def define_constant_layer_gradient(self, idx, dvdz, v0=None, xmin=None,
+    def define_constant_layer_gradient(self, ilyr, dvdz, v0=None, xmin=None,
                                        xmax=None, ymin=None, ymax=None):
         """
         Replace velocities within a layer by defining a constant gradient.
 
-        :param idx: Index of layer to work on.
+        :param ilyr: Index of layer to work on.
         :param dvdz: Velocity gradient.
         :param v0:  Velocity at the top of the layer. Default is to use the
             value at the base of the overlying layer.
@@ -398,7 +398,7 @@ class VM(object):
             velocities. Default is to change velocities over the entire
             y-domain.
         """
-        z0, z1 = self.get_layer_bounds(idx)
+        z0, z1 = self.get_layer_bounds(ilyr)
         for ix in self.xrange2i(xmin, xmax):
             for iy in self.yrange2i(ymin, ymax):
                 iz0, iz1 = self.z2i((z0[ix, iy], z1[ix, iy]))
@@ -413,21 +413,21 @@ class VM(object):
                     _v0 = v0
                 self.sl[ix, iy, iz0:iz1] = 1. / (_v0 + z * dvdz)
 
-    def get_layer_bounds(self, idx):
+    def get_layer_bounds(self, ilyr):
         """
         Get surfaces bounding a layer.
 
         :param idx: Index of layer of interest.
         :returns: z0, z1 arrays of top, bottom interface depths.
         """
-        if idx == 0:
+        if ilyr == 0:
             z0 = np.ones((self.nx, self.ny)) * self.r1[2]
         else:
-            z0 = self.rf[idx - 1]
-        if idx >= self.nr:
+            z0 = self.rf[ilyr - 1]
+        if ilyr >= self.nr:
             z1 = np.ones((self.nx, self.ny)) * self.r2[2]
         else:
-            z1 = self.rf[idx]
+            z1 = self.rf[ilyr]
         return z0, z1
 
     def init_model(self, r1, r2, dx, dy, dz, nr):
@@ -546,7 +546,7 @@ class VM(object):
         """
         Read derivative-weight sum (DWS) data.
 
-        :param filename: Filename of an ASCII with columns: x, y, z, dws.
+        :param filename: Filename of an ASCII file with columns: x, y, z, dws.
         """
         f = open(filename)
         dws = []
@@ -567,16 +567,16 @@ class VM(object):
         :param filename: Name of a file to write data to.
         :param fmt:  Format to write data in. Default is the native
             VM Tomography binary format (``format='vm'``). Other options are
-            ``'ascii_grid'``. See documentation for functions labeled
+            ``'ascii_grid'``.
         :param endian: The endianness of the file for binary formats.
             Default is to use the machine's native byte order.
+        :param kwargs: Keyword=value arguments that are passed along to the
+            writing function.
         """
         if fmt is 'vm':
             self.write_vm(filename, endian=endian)
         elif fmt is 'ascii_grid':
             self.write_ascii_grid(filename, **kwargs)
-        elif fmt is 'segy':
-            self.write_segy(filename, endian=endian, **kwargs)
         else:
             msg = "Unknown format '{:}'.".format(fmt)
             raise ValueError(msg)
@@ -979,7 +979,6 @@ class VM(object):
             self.ir[_iref][idx] -= 1
             idx = np.nonzero(self.ij[_iref] >= iref)
             self.ij[_iref][idx] -= 1
-        print "Removed interface with index {:}.".format(iref)
 
     def insert_interface(self, rf, jp=None, ir=None, ij=None):
         """
@@ -1014,10 +1013,9 @@ class VM(object):
         if ij is None:
             ij = iref * np.ones((self.nx, self.ny))
         # Check for proper dimensions
-        assert rf.shape == (self.nx, self.ny)
-        assert jp.shape == (self.nx, self.ny)
-        assert ir.shape == (self.nx, self.ny)
-        assert ij.shape == (self.nx, self.ny)
+        for v in [rf, jp, ir, ij]:
+            assert np.asarray(v).shape == (self.nx, self.ny),\
+                'Arrays must have shape (nx, ny)'
         # Insert arrays for new interface
         if self.nr == 0:
             self.rf = np.asarray([rf])
@@ -1034,7 +1032,7 @@ class VM(object):
             self.ir[_iref][idx] += 1
             idx = np.nonzero(self.ij[_iref] >= iref)
             self.ij[_iref][idx] += 1
-        print "Added interface with index {:}.".format(iref)
+        return iref
 
     def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
              ij=True, apply_jumps=True, colorbar=False, vmin=None,
@@ -1191,30 +1189,44 @@ class VM(object):
                    outfile=outfile)
 
     def _plot2d(self, velocity=True, ax=None, rf=True, ir=True, ij=True,
-                grid=None, colorbar=True, vmin=None, vmax=None, outfile=None):
+                grid=None, colorbar=True, vmin=None, vmax=None, outfile=None,
+                aspect=None):
         """
         Plot a 2D model.
 
-        :param velocity: Determines whether to grid values in units
-            of velocity or slowness. Default is to plot velocity.
-        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
-            into. Default is to create a new figure and axes.
-        :param rf: Plot a thin black line for each reflector. Default is
-            ``True``.
-        :param ir: Plot bold white line for portion of reflector depths
-            that are active in the inversion (i.e., ir>0). Default is ``True``.
-        :param ij: Plot bold black line for portion of reflector slowness jumps
-            that are active in the inversion (i.e., ij>0). Default is ``True``.
-        :param grid: Grid to plot as base plot. Default is to plot slowness or
+        Keyword Arguments
+        -----------------
+        velocity : bool
+            Determines whether to grid values in units of velocity or slowness.            Default is to plot velocity.
+        ax : {None, :class:`matplotlib.Axes.axes`}
+            Axes to plot into. Default is to create a new figure and axes.
+        rf : bool
+            Plot a thin black line for each reflector.
+        ir : bool
+            Plot bold white line for portion of reflector depths
+            that are active in the inversion (i.e., ir>0).
+        ij : bool
+            Plot bold black line for portion of reflector slowness jumps
+            that are active in the inversion (i.e., ij>0).
+        grid : array_like
+            Grid to plot as base plot. Default is to plot slowness or
             velocity from ``self.sl``.
-        :param colorbar: Show a colorbar. Default is ``True``.
-        :param vmin, vmax: Used to scale the velocity/slowness grid to 0-1. If
-            either is ``None`` (default), the min and max of the grid is
+        colorbar : bool
+            Show a colorbar.
+        vmin, vmax : {None, scalar}
+            Used to scale the velocity/slowness grid to 0-1. If
+            either is ``None`` (default), the min and max grid values will be
             used.
-        :param outfile: Output file string. Also used to automatically
+        outfile : {None, str}
+            Filename to save the plot to. Extension is used to automatically
             determine the output format. Supported file formats depend on your
             matplotlib backend. Most backends support png, pdf, ps, eps and
-            svg. Defaults is ``None``.
+            svg.
+        aspect : {None, 'auto', 'equal', scalar}
+            If 'auto', changes the image aspect ratio to match that of the
+            axes. If 'equal', the axes aspect ratio is changed to match that
+            of the model extent.  If None, defaults to the matplotlib
+            configuration ``image.aspect`` value.
         """
         assert self.ny == 1, "Model must be 2D with ny=1."
         if grid is None:
@@ -1228,7 +1240,8 @@ class VM(object):
         else:
             show = False
         img = ax.imshow(grid.transpose(), vmin=vmin, vmax=vmax,
-                  extent=(self.r1[0], self.r2[0], self.r2[2], self.r1[2]))
+            extent=(self.r1[0], self.r2[0], self.r2[2], self.r1[2]),
+            aspect=aspect)
         for iref in range(0, self.nr):
             if rf:
                 ax.plot(self.x, self.rf[iref], '-k')
@@ -1534,6 +1547,6 @@ def readVM(file, endian=ENDIAN, head_only=False):
         data. Useful is only interested in the grid dimension values.
         Default is to read the entire file.
     """
-    vm = VM()
+    vm = VM(init_model=False)
     vm.read(file, endian=endian, head_only=head_only)
     return vm

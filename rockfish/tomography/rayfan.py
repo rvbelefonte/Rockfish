@@ -258,7 +258,8 @@ class RayfanGroup(object):
         for rfn in self.rayfans:
             x = [p[iend][idim] for p in rfn.paths]
             for i, e in enumerate(rfn.residuals):
-                c = get_dict_default(rfn.event_ids[i], event_colors, default_color)
+                c = get_dict_default(rfn.event_ids[i], event_colors, 
+                                     default_color)
                 ax.plot(x[i], e, '.' + c, markersize=5)
         plt.xlabel('{:} {:} (km)'.format(end, dimension))
         plt.ylabel('Error (s)')
@@ -492,7 +493,7 @@ class Rayfan(object):
         """
         Calculate residuals.
         """
-        return np.asarray(self.pick_times) - np.asarray(self.travel_times) \
+        return np.asarray(self.travel_times) - np.asarray(self.pick_times) \
             + self.static_correction
     residuals = property(fget=_calc_residuals)
 

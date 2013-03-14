@@ -9,63 +9,58 @@ from rockfish.tomography import readVM
 
 RAYTR_PROGRAM = 'slim_rays'
 
-
-def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
-          grid_size=None, forward_star_size=[12, 12, 24], min_angle=0.5,
-          min_velocity=1.4, max_node_size=620, top_layer=0, bottom_layer=None,
-          stdout=None, stderr=None, verbose=True, **kwargs):
+def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
+                        shotfile='pick.dat', pickfile='shots.dat',
+                        grid_size=None, forward_star_size=[12, 12, 24],
+                        min_angle=0.5, min_velocity=1.4, max_node_size=620,
+                        top_layer=0, bottom_layer=None, stdout=None,
+                        stderr=None, verbose=True):
     """
-    Wrapper for running the VM Tomography raytracer.
+    Wrapper for running the VM Tomography raytracer using a ASCII input files.
 
-    Uses pick data in a
-        :class:`rockfish.picking.database.PickDatabaseConnection` to build
-        required input files on-the-fly and executes the tracer.
-
-    :param vmfile: Filename of the VM Tomography slowness model to
-        raytrace.
-    :param rayfile: Filename of the output rayfan file.
-    :param pickdbfile: Active
-        :class:`rockfish.picking.database.PickDatabaseConnection` to get picks
-        from.
-    :param input_dir: Optional. Path for writing intermediate files that are
-        used as input to the raytracing program. Default is to create a new
-        directory named ``'forward'``, if it does not already exist.
-    :param cleanup: Optional. Determines whether or not to remove intermediate
-        files that are used as input to the raytracing program. Default is to
-        remove these files.
-    :param grid_size: Optional. ``(nx, ny, nz)`` tuple with dimensions for the
-        graphing grid. Default is to match the graphing grid to the slowness
-        model dimensions.
-    :param min_angle: Optional. Minimum angle between search directions in
-        forward star in degrees. Default is ``0.5``.
-    :param min_velocity: Optional. Minimum velocity to trace rays through.
-        Default is ``1.4``.
-    :param max_node_size: Optional. Average number of nodes to allocate for
-        each raypath. The raytracing program will adjust this size if needed.
-        Default is ``620``.
-    :param top_layer: Optional. The index of the top-most layer to trace rays
-        through. Default is ``0`` (i.e., the top-most layer in the model).
-    :param bottom_layer: Optional. The index of the bottom-most layer to trace
-        rays through. Default is the index of the bottom-most layer in the
-        model.
-    :param stdout: Optional. Object to send standard out messages produced
-        by the raytracing program to. Default is to send messages to the
-        standard out.
-    :param stderr: Optional. Object to send standard error messages produced
-        by the raytracing program to. Default is to send messages to the
-        standard error.
-    :param verbose: Optional. Determines whether or not to print detailed
-        information from the raytracer. Default is ``True``.
-    :param **kwargs: keyword=value arguments used to select picks to output
+    Parameters
+    ----------
+    vmfile : str
+        Filename of the VM Tomography slowness model to raytrace.
+    rayfile : str
+        Filename of the output VM Tomography rayfan file.
+    instfile : str
+        Filename of the ASCII-formatted instrument location file with 
+        the four columns: ``inst_id, x, y, z``.
+    shotfile : str
+        Filename of the ASCII-formatted shot location file with 
+        the four columns: ``shot_id, x, y, z``.
+    pickfile : str
+        Filename of the ASCII-formatted pick time file with 
+        the seven columns: ``inst_id, shot_id, branch, subbranch_id, range,
+        pick_time, pick_error``.
+    grid_size : (int, int, int), optional
+        Tuple of ``(nx, ny, nz)`` dimensions for the graphing grid. Default is        to match the graphing grid to the slowness model dimensions.
+    min_angle : float, optional
+        Minimum angle between search directions in forward star in degrees.
+    min_velocity : float, optional
+        Minimum velocity to trace rays through.
+    max_node_size : int, optional
+        Average number of nodes to allocate for each raypath. The raytracing
+        program will adjust this size if needed.
+    top_layer : int, optional
+        The index of the top-most layer to trace rays through.
+    bottom_layer : int, optional
+        The index of the bottom-most layer to trace rays through. Default is
+        the index of the bottom-most layer in the model.
+    stdout, stderr : {'PIPE', int, file, None}, optional
+        stdout and stderr specify the raytracing program's standard
+        output and standard error file handles, respectively. Valid values
+        are ``'PIPE'``, an existing file descriptor (a positive
+        integer), an existing file object, and ``None``. See :mod:`subprocess`        for more information.
+    verbose : {bool, int}, optional
+        Determines whether or not to print information from the
+        raytracing program.  Valid values are ``True``, ``False``, or numeric
+        level.
     """
-    # Make the input files
-    instfile = 'inst.dat'
-    pickfile = 'picks.dat'
-    shotfile = 'shots.dat'
-    if not os.path.isdir(input_dir):
-        os.mkdir(input_dir)
-    pickdb.write_vmtomo(instfile=instfile, pickfile=pickfile,
-                        shotfile=shotfile, directory=input_dir, **kwargs)
+    # set numeric verbosity level
+    if verbose and (type(verbose) == bool):
+        verbose = 4
     # ensure full path for vm programs
     vmfile = os.path.abspath(vmfile)
     rayfile = os.path.abspath(rayfile)
@@ -81,14 +76,17 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
     # Set bottom-most layer
     if bottom_layer is None:
         bottom_layer = vm.nr
+    # Get instrument locations
+    finst = open(instfile, 'rb')
+    inst = {}
+    for row in finst:
+        dat = row.split()
+        inst[int(dat[0])] = [float(d) for d in dat[1:4]]
+    finst.close()
     # Raytrace each instrument
-    inst = pickdb.get_ensembles(**kwargs)
     ninst = len(inst)
-    if ninst == 0:
-        print "No picks found to raytrace that match the search citeria:"
-        print kwargs
-        return
-    print 'Raytracing paths to {:} receiver(s)...'.format(ninst)
+    if verbose >= 2:
+        print 'Raytracing paths to {:} receiver(s)...'.format(ninst)
     if os.path.isfile(rayfile):
         os.remove(rayfile)
     start_all = time.clock()
@@ -98,10 +96,11 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
             irayfile_exists = 0
         else:
             irayfile_exists = 1
-        recx, recy, recz = pickdb.get_vmtomo_instrument_position(_inst)
+        recx, recy, recz = inst[_inst]
         # Build input
-        print ' Tracing rays for receiver #{:} ({:} of {:})'\
-                .format(_inst, i + 1, ninst)
+        if verbose >= 3:
+            print ' Tracing rays for receiver #{:} ({:} of {:})'\
+                    .format(_inst, i + 1, ninst)
         sh = '#!/bin/bash\n'
         sh += '#\n'
         sh += '{:} << eof\n'.format(RAYTR_PROGRAM)
@@ -116,8 +115,8 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
                                      forward_star_size[1],
                                      forward_star_size[2])
         sh += '{:}\n'.format(min_angle)
-        sh += '{:}\n'.format(input_dir + '/' + shotfile)
-        sh += '{:}\n'.format(input_dir + '/' + pickfile)
+        sh += '{:}\n'.format(shotfile)
+        sh += '{:}\n'.format(pickfile)
         sh += '{:}\n'.format(rayfile)
         sh += '{:}\n'.format(irayfile_exists)
         sh += '0.0\n'  # XXX seting instrument static to 0. here!
@@ -129,7 +128,7 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
             raysize0 = os.path.getsize(rayfile)
         else:
             raysize0 = 0
-        if verbose:
+        if verbose >= 4:
             subprocess.call(sh, shell=True, stdout=stdout, stderr=stderr)
         else:
             with open(os.devnull, "w") as fnull:
@@ -139,21 +138,108 @@ def raytrace(vmfile, pickdb, rayfile, input_dir='forward', cleanup=True,
             raysize1 = os.path.getsize(rayfile)
         else:
             raysize1 = 0
-        if raysize1 == raysize0:
+        if (raysize1 == raysize0) and verbose >= 1:
             msg = 'Did not appear to trace rays for receiver #{:}'\
                     .format(_inst)
             warnings.warn(msg)
-        print 'Completed raytracing for receiver #{:} in {:} seconds.'\
-            .format(_inst, elapsed)
-    print 'Completed raytracing for all recievers in {:} seconds.'\
-            .format(time.clock() - start_all)
-    if os.path.isfile(rayfile):
+        if verbose >= 3:
+            print 'Completed raytracing for receiver #{:} in {:} seconds.'\
+                .format(_inst, elapsed)
+    if verbose >= 2:
+        print 'Completed raytracing for all recievers in {:} seconds.'\
+                .format(time.clock() - start_all)
+    if os.path.isfile(rayfile) and verbose > 1:
         print 'Output rayfile is: {:}'.format(rayfile)
-    else:
+    elif not os.path.isfile(rayfile) and (verbose >= 1):
         msg = 'Did not create a rayfile.'
         warnings.warn(msg)
+
+
+
+def raytrace(vmfile, pickdb, rayfile, pick_keys={}, input_dir='forward',
+             cleanup=True, grid_size=None, forward_star_size=[12, 12, 24],
+             min_angle=0.5, min_velocity=1.4, max_node_size=620,
+             top_layer=0, bottom_layer=None, stdout=None, stderr=None,
+             verbose=True, step=1, **kwargs):
+    """
+    Wrapper for running the VM Tomography raytracer using a pick database.
+
+    Uses pick data in a
+        :class:`rockfish.picking.database.PickDatabaseConnection` to build
+        required input files on-the-fly and executes the tracer.
+
+    Parameters
+    ----------
+    vmfile : str
+        Filename of the VM Tomography slowness model to raytrace.
+    rayfile : str
+        Filename of the output VM Tomography rayfan file.
+    pickdbfile : :class:`rockfish.picking.database.PickDatabaseConnection`
+        Database connection to get shot locations, instrument locations, 
+        and pick times from.
+    input_dir : str, optional
+        Path for writing ASCII data files that are used as input to the 
+        raytracing program. 
+    cleanup : bool, optional
+        Determines whether or not to remove the files that are created for
+        input to the raytracing program.
+    grid_size : (int, int, int), optional
+        Tuple of ``(nx, ny, nz)`` dimensions for the graphing grid. Default is        to match the graphing grid to the slowness model dimensions.
+    min_angle : float, optional
+        Minimum angle between search directions in forward star in degrees.
+    min_velocity : float, optional
+        Minimum velocity to trace rays through.
+    max_node_size : int, optional
+        Average number of nodes to allocate for each raypath. The raytracing
+        program will adjust this size if needed.
+    top_layer : int, optional
+        The index of the top-most layer to trace rays through.
+    bottom_layer : int, optional
+        The index of the bottom-most layer to trace rays through. Default is
+        the index of the bottom-most layer in the model.
+    stdout, stderr : {'PIPE', int, file, None}, optional
+        stdout and stderr specify the raytracing program's standard
+        output and standard error file handles, respectively. Valid values
+        are ``'PIPE'``, an existing file descriptor (a positive
+        integer), an existing file object, and ``None``. See :mod:`subprocess`        for more information.
+    verbose : bool, optional
+        Determines whether or not to print detailed information from the
+        raytracing program.
+    step : int
+        Specifies the increment of picks in the database to raytrace. Useful
+        for raytracing a subset of the picks.
+    **kwargs : keyword=value arguments, optional
+        Field values to use when selecting picks from the database to
+        raytrace.
+    """
+    # Make the input files
+    instfile = 'inst.dat'
+    pickfile = 'picks.dat'
+    shotfile = 'shots.dat'
+    if not os.path.isdir(input_dir):
+        new_dir = True
+        os.mkdir(input_dir)
+    else:
+        new_dir = False
+    pickdb.write_vmtomo(instfile=instfile, pickfile=pickfile,
+                        shotfile=shotfile, directory=input_dir, 
+                        step=step, **kwargs)
+    # Run the raytracer
+    raytrace_from_ascii(vmfile, rayfile, 
+                        instfile=os.path.join(input_dir, instfile),
+                        shotfile=os.path.join(input_dir, shotfile),
+                        pickfile=os.path.join(input_dir, pickfile),
+                        grid_size=grid_size,
+                        forward_star_size=forward_star_size,
+                        min_angle=min_angle, min_velocity=min_velocity,
+                        max_node_size=max_node_size, top_layer=top_layer,
+                        bottom_layer=bottom_layer, stdout=stdout,
+                        stderr=stderr, verbose=verbose)
+    # Remove the input files
     if cleanup:
-        try:
+        for f in [instfile, pickfile, shotfile]:
+            _f = os.path.join(input_dir, f)
+            if os.path.isfile(_f):
+                os.remove(_f)
+        if new_dir:
             os.rmdir(input_dir)
-        except:
-            pass

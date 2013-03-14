@@ -25,6 +25,8 @@ class forwardTestCase(unittest.TestCase):
 
         # Create pick database
         pickdbfile = 'temp.sqlite'
+        if os.path.isfile(pickdbfile):
+            os.remove(pickdbfile)
         pickdb = PickDatabaseConnection(pickdbfile)
         pickdb.update_pick(event='P1', ensemble=100, trace=1,
                         vm_branch=1, vm_subid=0,
@@ -43,7 +45,7 @@ class forwardTestCase(unittest.TestCase):
             if os.path.isfile(rayfile):
                 os.remove(rayfile)
             pick_keys = {'vm_branch' : branch}
-            raytrace(vmfile, pickdb, rayfile, **pick_keys)
+            raytrace(vmfile, pickdb, rayfile, **pick_keys) 
             # Should have created a rayfile
             self.assertTrue(os.path.isfile(rayfile))
             # Load rayfans

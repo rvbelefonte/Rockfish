@@ -266,7 +266,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             self._insertupdate(table, **values)
 
     def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat',
-                     shotfile='shots.dat', directory='.', **kwargs):
+                     shotfile='shots.dat', directory='.', step=1, **kwargs):
         """
         Write pick data to VM Tomography format input files.
 
@@ -278,17 +278,18 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             Default is ``shots.dat``.
         :param directory: Optional. Name of path to append to filenames.
             Default is to write files in the current working directory.
+        :param step: Optional. Specifies the increment of picks to write out.
         :param **kwargs: Optional keyword=value arguments for fields in the
             picks table. Default is to write all picks.
         """
         f = open(directory + '/' + pickfile, 'w')
-        f.write(self.get_vmtomo_picks(**kwargs))
+        f.write(self.get_vmtomo_picks(step=step, **kwargs))
         f.close()
         f = open(directory + '/' + instfile, 'w')
-        f.write(self.vmtomo_inst)
+        f.write(self.get_vmtomo_inst(**kwargs))
         f.close()
         f = open(directory + '/' + shotfile, 'w')
-        f.write(self.vmtomo_shots)
+        f.write(self.get_vmtomo_shots(**kwargs))
         f.close()
 
     def plot_geometry(self, dim=[0, 1], receivers=True, sources=True, ax=None,
@@ -405,16 +406,17 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         logging.debug("calling: self.execute('%s')" % sql)
         return [f[0] for f in self.execute(sql).fetchall()]
 
-    def get_vmtomo_picks(self, **kwargs):
+    def get_vmtomo_picks(self, step=1, **kwargs):
         """
         Returns a formated string of picks for input to VM Tomography.
 
         :param **kwargs: keyword=value arguments used to select picks to output
         """
-        sql = 'SELECT * FROM {:}'.format(VMTOMO_PICK_VIEW)
+        sql = 'SELECT ensemble, trace, vm_branch, vm_subid, offset, time'
+        sql += ', error FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
-        return format_row_factory(self.execute(sql), none_value=0.0)
+        return format_row_factory(self.execute(sql), none_value=0.0, step=step)
 
     def get_vmtomo_shots(self, **kwargs):
         """
@@ -422,7 +424,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
 
         :param **kwargs: keyword=value arguments used to select shots to output
         """
-        sql = 'SELECT * FROM {:}'.format(VMTOMO_SHOT_VIEW)
+        sql = 'SELECT trace, source_x, source_y, source_z'
+        sql += ' FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
         return format_row_factory(self.execute(sql), none_value=0.0)
@@ -434,7 +437,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         :param **kwargs: keyword=value arguments used to select instruments
             to output.
         """
-        sql = 'SELECT * FROM {:}'.format(VMTOMO_INSTRUMENT_VIEW)
+        sql = 'SELECT ensemble, receiver_x, receiver_y, receiver_z' 
+        sql += ' FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
         return format_row_factory(self.execute(sql), none_value=0.0)

@@ -182,7 +182,7 @@ class VMPlotter(object):
             self.fig = fig
 
     def plot2d(self, model=True, paths=True, traced=True, picked=True,
-               residuals=True, show=True, event_colors={},
+               residuals=True, colorbar=False, show=True, event_colors={},
                vmin=None, vmax=None):
         """
         Plot a 2D velocity model, rays, and/or travel-times.
@@ -197,6 +197,7 @@ class VMPlotter(object):
             travel times, if they exist. Default is ``True``.
         :param residuals: Optional. Determines whether or not to residuals, if
             they exist. Default is ``True``.
+        :param colorbar: Show a colorbar. Default is ``False``.
         :param event_colors: Optional. Dictionary of event names and colors
             to use for plotting raypaths and times for different events. If
             ``event_colors`` is not given, or if an event ID is not in
@@ -216,7 +217,7 @@ class VMPlotter(object):
             rows += 1
         ax = [self.fig.add_subplot(rows, 1, 1)]
         if model and (self.vm is not None):
-            self.vm.plot(ax=ax[-1], vmin=vmin, vmax=vmax)
+            self.vm.plot(ax=ax[-1], vmin=vmin, vmax=vmax, colorbar=colorbar)
         if paths and (self.rays is not None):
             self.rays.plot_raypaths(ax=ax[-1], event_colors=event_colors)
         if (traced or picked) and (self.rays is not None):

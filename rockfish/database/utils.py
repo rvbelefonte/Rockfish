@@ -3,7 +3,7 @@ General utilities for working with databases
 """
 
 
-def format_row_factory(rows, none_value=None):
+def format_row_factory(rows, none_value=None, step=1):
     """
     Dump list of :class:`sqlite3.Row` instances to a string.
 
@@ -12,8 +12,9 @@ def format_row_factory(rows, none_value=None):
     :returns: string with all row data
     """
     sng = ''
-    for row in rows:
-        for v in row:
+    dat = rows.fetchall()
+    for i in range(0, len(dat), step):
+        for v in dat[i]:
             if v is None:
                 v = none_value
             sng += '{:} '.format(v)
