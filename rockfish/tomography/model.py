@@ -826,7 +826,7 @@ class VM(object):
         :param iy: list of y indices
         :returns: list of y coordinates
         """
-        return [self.r1[0] + _iy * self.dy for _iy in iy]
+        return [self.r1[1] + _iy * self.dy for _iy in iy]
 
     def yrange2i(self, ymin=None, ymax=None):
         """
@@ -855,7 +855,7 @@ class VM(object):
         :param y: list of y coordinates in the model
         :returns: list of nearest y index for the given coordinates
         """
-        return [int((_z - self.r1[1]) / self.dz) for _z in z]
+        return [int((_z - self.r1[2]) / self.dz) for _z in z]
 
     def i2z(self, iz):
         """
@@ -864,7 +864,7 @@ class VM(object):
         :param iz: list of z indices
         :returns: list of z coordinates
         """
-        return [self.r1[0] + _iz * self.dz for _iz in iz]
+        return [self.r1[2] + _iz * self.dz for _iz in iz]
 
     def zrange2i(self, zmin=None, zmax=None):
         """
@@ -877,11 +877,11 @@ class VM(object):
         :returns: ``list`` of z indices.
         """
         if zmin is None:
-            zmin = self.r1[1]
+            zmin = self.r1[2]
         else:
             zmin = max(self.r1[2], zmin)
         if zmax is None:
-            zmax = self.r2[1]
+            zmax = self.r2[2]
         else:
             zmax = min(self.r2[2], zmax)
         return range(self.z2i([zmin])[0], self.z2i([zmax])[0] + 1)

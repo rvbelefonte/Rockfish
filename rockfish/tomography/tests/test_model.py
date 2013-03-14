@@ -10,7 +10,7 @@ from rockfish.utils.loaders import get_example_file
 
 BENCHMARK_2D = 'benchmark2d.vm'
 TEST_2D_MODELS = ['jump1d.vm']
-TEST_3D_MODELS = ['pinchout3d.vm'] #XXX, 'cranis3d.vm']
+TEST_3D_MODELS = ['pinchout3d.vm', 'cranis3d.vm']
 TEST_MODELS = TEST_2D_MODELS + TEST_3D_MODELS
 
 
@@ -99,28 +99,49 @@ class vmTestCase(unittest.TestCase):
         """
         Should convert between x indices and coordinates and back
         """
-        vm = VM()
-        x = vm.r1[0] + (vm.r2[0] - vm.r1[0]) / 2.
-        ix = vm.x2i([x])
-        self.assertEqual(x, vm.i2x(ix)[0])
+        r1 = (-10, -20, -30)
+        r2 = (10, 20, 30)
+        vm = VM(r1=r1, r2=r2, dx=1, dy=1, dz=1)
+        ix = vm.x2i([vm.r1[0]])[0]
+        x = vm.i2x([ix])[0]
+        self.assertEqual(ix, 0)
+        self.assertEqual(x, vm.r1[0])
+        ix = vm.x2i([vm.r2[0]])[0]
+        x = vm.i2x([ix])[0]
+        self.assertEqual(ix, vm.nx - 1)
+        self.assertEqual(x, vm.r2[0])
 
     def test_y2i(self):
         """
         Should convert between y indices and coordinates and back
         """
-        vm = VM()
-        y = vm.r1[1] + (vm.r2[1] - vm.r1[1]) / 2.
-        iy = vm.y2i([y])
-        self.assertEqual(y, vm.i2y(iy)[0])
+        r1 = (-10, -20, -30)
+        r2 = (10, 20, 30)
+        vm = VM(r1=r1, r2=r2, dx=1, dy=1, dz=1)
+        iy = vm.y2i([vm.r1[1]])[0]
+        y = vm.i2y([iy])[0]
+        self.assertEqual(iy, 0)
+        self.assertEqual(y, vm.r1[1])
+        iy = vm.y2i([vm.r2[1]])[0]
+        y = vm.i2y([iy])[0]
+        self.assertEqual(iy, vm.ny - 1)
+        self.assertEqual(y, vm.r2[1])
 
     def test_z2i(self):
         """
         Should convert between z indices and coordinates and back
         """
-        vm = VM()
-        z = vm.r1[1] + (vm.r2[1] - vm.r1[1]) / 2.
-        iz = vm.z2i([z])
-        self.assertEqual(z, vm.i2z(iz)[0])
+        r1 = (-10, -20, -30)
+        r2 = (10, 20, 30)
+        vm = VM(r1=r1, r2=r2, dx=1, dy=1, dz=1)
+        iz = vm.z2i([vm.r1[2]])[0]
+        z = vm.i2z([iz])[0]
+        self.assertEqual(iz, 0)
+        self.assertEqual(z, vm.r1[2])
+        iz = vm.z2i([vm.r2[2]])[0]
+        z = vm.i2z([iz])[0]
+        self.assertEqual(iz, vm.nz - 1)
+        self.assertEqual(z, vm.r2[2])
 
     def test_insert_interface(self):
         """
