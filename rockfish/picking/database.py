@@ -1,7 +1,7 @@
 """
 Support for building and managing pick databases.
 """
-
+import os
 import logging
 import matplotlib.pyplot as plt
 from rockfish.database.database import RockfishDatabaseConnection
@@ -282,6 +282,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         :param **kwargs: Optional keyword=value arguments for fields in the
             picks table. Default is to write all picks.
         """
+        if not os.path.isdir(directory):
+            os.mkdir(directory)
         f = open(directory + '/' + pickfile, 'w')
         f.write(self.get_vmtomo_picks(step=step, **kwargs))
         f.close()

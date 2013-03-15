@@ -61,9 +61,9 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
     # set numeric verbosity level
     if verbose and (type(verbose) == bool):
         verbose = 4
-    # ensure full path for vm programs
-    vmfile = os.path.abspath(vmfile)
-    rayfile = os.path.abspath(rayfile)
+    #XXX # ensure full path for vm programs
+    #vmfile = os.path.abspath(vmfile)
+    #rayfile = os.path.abspath(rayfile)
     # set grid size for shortest path algortithm
     vm = readVM(vmfile, head_only=True)
     if grid_size is None:
@@ -129,10 +129,12 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
         else:
             raysize0 = 0
         if verbose >= 4:
-            subprocess.call(sh, shell=True, stdout=stdout, stderr=stderr)
+            proc = subprocess.call(sh, shell=True, stdout=stdout,
+                                         stderr=stderr)
         else:
             with open(os.devnull, "w") as fnull:
-                subprocess.call(sh, shell=True, stdout=fnull, stderr=stderr)
+                proc = subprocess.call(sh, shell=True, stdout=fnull,
+                                        stderr=stderr)
         elapsed = (time.clock() - start)
         if os.path.isfile(rayfile):
             raysize1 = os.path.getsize(rayfile)
@@ -153,6 +155,8 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
     elif not os.path.isfile(rayfile) and (verbose >= 1):
         msg = 'Did not create a rayfile.'
         warnings.warn(msg)
+
+    return proc
 
 
 def raytrace(vmfile, pickdb, rayfile, pick_keys={}, input_dir='forward',

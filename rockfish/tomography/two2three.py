@@ -115,7 +115,7 @@ def project_layer_velocities(vm2d, vm3d, phi, ilyr_3d, ilyr_2d=None,
             vm3d.sl[ix, iy, iz_3d] = z2sl(np.clip(i3d, 0, i2d[-1]))
 
 
-def two2three(vm, sol, eol, dx=None, dy=None, phi=90.0):
+def two2three(vm, sol, eol, dx=None, dy=None, phi=90.0, head_only=False):
     """
     Convert a 2D model to a 3D model by giving the coordinates of the line
     endpoints.
@@ -136,10 +136,13 @@ def two2three(vm, sol, eol, dx=None, dy=None, phi=90.0):
         in the 2D input mdel.
     dy : float, optional
         Grid spacing in the y direction.  Default is to set ``dy=dx``.
-    phi : float
+    phi : float, optional
         Angle of the extrusion direction, measured in degrees from the line
         azimuth. Default is ``90.0`` (i.e., in the line-perpendicular 
         direction).
+    head_only : bool, optional
+        If ``True``, only calculates the size values for the 3D model and does
+        not perform the actual extrusion.
     """
     # check that current model is 2D
     assert vm.ny == 1, 'vm must be 2D with vm.ny == 1'
@@ -155,6 +158,8 @@ def two2three(vm, sol, eol, dx=None, dy=None, phi=90.0):
     vm1 = VM(r1=(sol[0], sol[1], vm.r1[2]), 
              r2=(eol[0], eol[1], vm.r2[2]),
              dx=dx, dy=dy, nr=vm.nr)
+    if head_only:
+        return vm1
     # build surface interpolators
     x2rf = []
     x2jp = []
