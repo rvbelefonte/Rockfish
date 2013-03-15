@@ -129,12 +129,12 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
         else:
             raysize0 = 0
         if verbose >= 4:
-            proc = subprocess.call(sh, shell=True, stdout=stdout,
+            subprocess.call(sh, shell=True, stdout=stdout,
                                          stderr=stderr)
         else:
             with open(os.devnull, "w") as fnull:
-                proc = subprocess.call(sh, shell=True, stdout=fnull,
-                                        stderr=stderr)
+                subprocess.call(sh, shell=True, stdout=fnull,
+                                stderr=stderr)
         elapsed = (time.clock() - start)
         if os.path.isfile(rayfile):
             raysize1 = os.path.getsize(rayfile)
@@ -156,7 +156,6 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
         msg = 'Did not create a rayfile.'
         warnings.warn(msg)
 
-    return proc
 
 
 def raytrace(vmfile, pickdb, rayfile, pick_keys={}, input_dir='forward',
