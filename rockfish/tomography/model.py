@@ -165,6 +165,7 @@ class VM(object):
             calculating jumps. Default is to calculate jumps over the entire
             y-domain.
         """
+        self.apply_jumps(iref=range(0, iref - 1))
         _, z0 = self.get_layer_bounds(iref)
         for ix in self.xrange2i(xmin, xmax):
             for iy in self.yrange2i(ymin, ymax):
@@ -172,6 +173,7 @@ class VM(object):
                 sl0 = self.sl[ix, iy, iz0]
                 sl1 = self.sl[ix, iy, iz0 + 1]
                 self.jp[iref - 1][ix][iy] = sl1 - sl0
+        self.remove_jumps(iref=range(0, iref - 1))
 
     def apply_jumps(self, iref=None, remove=False):
         """
