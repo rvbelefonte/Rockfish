@@ -22,9 +22,10 @@ class RockfishDatabaseConnection(sqlite3.Connection):
         :param name: Field name.
         :param sql_type: SQLite data type for the new field. Default is TEXT.
         """
-        sql = 'ALTER TABLE {:}'.format(table)
-        sql += ' ADD COLUMN {:} {:}'.format(name, sql_type)
-        self.execute(sql)
+        if name not in self._get_fields(table):
+            sql = 'ALTER TABLE {:}'.format(table)
+            sql += ' ADD COLUMN {:} {:}'.format(name, sql_type)
+            self.execute(sql)
 
     def _insert(self, table, **kwargs):
         """

@@ -34,6 +34,20 @@ class DatabaseTestCase(unittest.TestCase):
         # clean up
         os.remove(filename)
 
+    def test__add_field_if_not_exists(self):
+        """
+        Should add a field only if it does not already exist.
+        """
+        db = RockfishDatabaseConnection(':memory:')
+        field_name = 'field1'
+        fields = [(field_name, 'REAL', None, False, False)]
+        db._create_table_if_not_exists('table1', fields)
+        # should have the field
+        current_fields = db._get_fields('table1')
+        self.assertEqual(len(current_fields), 1)
+        # try to add the field again
+        db._add_field_if_not_exists('table1', field_name)
+
 
 def suite():
     return unittest.makeSuite(DatabaseTestCase, 'test')

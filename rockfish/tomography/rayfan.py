@@ -574,10 +574,8 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', synthetic=False, noise=None,
                 _noise = noise * 2 * (np.random.random() - 0.5)
             else:
                 _noise = 0.0
-            sx = rfn.paths[i][0][0]
-            sy = rfn.paths[i][0][1]
-            rx = rfn.endpoints[i][0]
-            ry = rfn.endpoints[i][1]
+            sx, sy, sz = rfn.paths[i][0]
+            rx, ry, rz = rfn.paths[i][-1]
             if pickdb is not None:
                 event = pickdb.vmbranch2event[rfn.event_ids[i]]
             else:
@@ -602,10 +600,8 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', synthetic=False, noise=None,
                  'trace': rfn.end_point_ids[i],
                  'residual' : residual,
                  'error': rfn.pick_errors[i],
-                 'source_x': sx, 'source_y': sy,
-                 'source_z': rfn.paths[i][0][2],
-                 'receiver_x': rx, 'receiver_y': ry,
-                 'receiver_z': rfn.endpoints[i][2],
+                 'source_x': sx, 'source_y': sy, 'source_z': sz,
+                 'receiver_x': rx, 'receiver_y': ry, 'receiver_z': rz,
                  'offset': rfn.offsets[i],
                  'faz': rfn.azimuths[i],
                  'method': 'rayfan2db()',
