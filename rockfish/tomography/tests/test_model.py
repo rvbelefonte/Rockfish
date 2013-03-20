@@ -84,7 +84,7 @@ class vmTestCase(unittest.TestCase):
             # set all ir and ij flags to -1 (off)
             vm.ir = -1 * np.ones(vm.ir.shape)
             vm.ij = -1 * np.ones(vm.ij.shape)
-            # reading and writing should not change flag values 
+            # reading and writing should not change flag values
             tempvm = 'temp123.vm'
             vm.write(tempvm)
             vm = readVM(tempvm)
@@ -200,7 +200,7 @@ class vmTestCase(unittest.TestCase):
                 self.assertEqual(vm.ir[_iref].max(), _iref)
                 self.assertEqual(vm.ij[_iref].min(), _iref)
                 self.assertEqual(vm.ij[_iref].max(), _iref)
-    
+
     def test_define_stretched_layer_velocities(self):
         """
         Should fit a 1D velocity function to a layer.
@@ -211,8 +211,8 @@ class vmTestCase(unittest.TestCase):
             for ilyr in range(vm.nr + 1):
                 vm.sl = np.nan * np.ones((vm.nx, vm.ny, vm.nz))
                 vm.define_stretched_layer_velocities(ilyr, [10])
-                self.assertEqual(np.nanmax(vm.sl), 1./10)
-                self.assertEqual(np.nanmin(vm.sl), 1./10)
+                self.assertEqual(np.nanmax(vm.sl), 1. / 10)
+                self.assertEqual(np.nanmin(vm.sl), 1. / 10)
 
     def test_insert_layer_velocities(self):
         """
@@ -246,8 +246,8 @@ class vmTestCase(unittest.TestCase):
         Should return arrays with layer top and bottom bounding surfaces
         """
         # Create a simple 3D model
-        r1=(0, 0, 0)
-        r2=(50, 50, 20)
+        r1 = (0, 0, 0)
+        r2 = (50, 50, 20)
         vm = VM(r1=r1, r2=r2, dx=2, dy=2, dz=0.2)
         # Should have no layers
         self.assertEqual(vm.nr, 0)
@@ -262,7 +262,7 @@ class vmTestCase(unittest.TestCase):
         # Insert an interfce and get bounds again
         _z = 5.
         vm.insert_interface(_z * np.ones((vm.nx, vm.ny)))
-        # Top layer should be between r1[2] and _z 
+        # Top layer should be between r1[2] and _z
         z0, z1 = vm.get_layer_bounds(0)
         self.assertEqual(z0.min(), r1[2])
         self.assertEqual(z0.max(), r1[2])
@@ -285,6 +285,20 @@ class vmTestCase(unittest.TestCase):
         self.assertEqual(z1.min(), _z)
         self.assertEqual(z1.max(), _z1)
 
+    def test_gridpoint2index(self):
+        """
+        Should convert between 1D and 3D grid indices.
+        """
+        vm = VM()
+        # should return an integer index
+        i0 = (10, 0, 3)
+        idx = vm.gridpoint2index(*i0)
+        self.assertEqual(type(idx), int)
+        # should return original 3D indices
+        i1 = vm.index2gridpoint(idx)
+        self.assertEqual(type(i1), tuple)
+        for j in range(3):
+            self.assertEqual(i0[j], i1[j])
 
 
 def suite():

@@ -763,6 +763,27 @@ class VM(object):
         """
         return ix * self.ny * self.nz + iy * self.nz + iz
 
+    def index2gridpoint(self, idx):
+        """
+        Convert an index in the 1D, packed slowness array to 3-component
+        indices.
+
+        Parameters
+        ----------
+        idx : int
+            Index in the 1D, packed slowness array
+        
+        Returns
+        -------
+        ix, iy, iz : int
+            x, y, and z indices in the 3D grid.
+        """
+        iz = np.mod(idx, self.nz)
+        iy = np.mod(idx / self.nz, self.ny)
+        ix = idx / (self.ny * self.nz)
+        return ix, iy, iz
+
+
     def interfacepoint2index(self, ix, iy, ir):
         """
         Convert a 3-component interface indices to a single index in the 1D
