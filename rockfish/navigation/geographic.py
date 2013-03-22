@@ -5,16 +5,37 @@ import numpy as np
 from pyproj import Geod
 
 
-def divide_line(pts, spacing_m=6.25, runin_m=0.,
-                ellps='WGS84', ibin0=0):
+def divide_line(pts, spacing=6.25, runin=0.,
+                ellps='WGS84', isegment0=0):
     """
     Divide a line into equally spaced segments.
+
+    Parameters
+    ----------
+    pts : list of tuples 
+        List of point coordinates in longitude and latitude that define the
+        line.  Format is: ``[(lon_0, lat_0), (lon_1, lat_1), ...,
+        (lon_n, lat_n)]``.
+    spacing : float, optional
+        Spacing between line segments in meters.
+    runin : float, optional
+        Length of a "run-in" segment prepended to the line.
+    ellps : str, optional
+        Name of the ellipse to use in geodetic calculations. Must be
+        recognized by :class:`pyproj.Geod`.
+    isegment0 : int, optional
+        Sequence number of the first bin.
+
+    Returns
+    -------
+    bins : list
+        List of (lon, lat, offset, sequence) tuples.
     """
     gd = Geod(ellps=ellps)
-    x = -runin_m
-    _x = -runin_m
-    ibin = ibin0
-    coords = []
+    x = -runin
+    _x = -runin
+    ibin = isegment0
+    bins = []
     for i in range(0, len(pts) - 1):
         _x0 = _x
         lon0, lat0 = pts[i]
@@ -22,36 +43,36 @@ def divide_line(pts, spacing_m=6.25, runin_m=0.,
         faz, baz, dist = gd.inv(lon0, lat0, lon1, lat1)
         while _x <= dist:
             lon, lat, _ = gd.fwd(lon0, lat0, faz, _x)
-            coords += [(lon, lat, x, ibin)]
-            _x += spacing_m
-            x += spacing_m
+            bins += [(lon, lat, x, ibin)]
+            _x += spacing
+            x += spacing
             ibin += 1
         _x -= dist
         x -= _x
         if _x > 0:
             x += _x
-            coords += [(lon1, lat1, x, ibin - 1)]
-    return coords
+            bins += [(lon1, lat1, x, ibin - 1)]
+    return bins
 
 
-def build_bins(pts, spacing_m=6.25, width_m=50, runin_m=0,
-               ibin0=1000, ellps='WGS84'):
+def build_bins(pts, spacing=6.25, width=50, runin=0,
+               isequence0=1000, ellps='WGS84'):
     """
     Build bins along a line of points.
     """
     gd = Geod(ellps=ellps)
-    div_pts = divide_line(pts, spacing_m=spacing_m,
-                          runin_m=runin_m, ellps=ellps)
+    div_pts = divide_line(pts, spacing=spacing,
+                          runin=runin, ellps=ellps)
     bins = []
     ndiv = len(div_pts)
-    ibin = ibin0
+    ibin = isequence0
     align_to_last_bin = False
     for i in range(0, ndiv - 1):
         lon0, lat0, x0, i0 = div_pts[i]
         lon1, lat1, x1, i1 = div_pts[i + 1]
         faz, baz, dist = gd.inv(lon0, lat0, lon1, lat1)
         # bin corners
-        _bin = _build_bin(lon0, lat0, lon1, lat1, width_m, gd)
+        _bin = _build_bin(lon0, lat0, lon1, lat1, width, gd)
         # bin center
         _center = _calculate_center(_bin)
         # put it all together
@@ -93,23 +114,23 @@ def _calculate_center(pts):
     return (np.mean([p[0] for p in pts]), np.mean([p[1] for p in pts]))
 
 
-def _build_bin(lon0, lat0, lon1, lat1, width_m, gd):
+def _build_bin(lon0, lat0, lon1, lat1, width, gd):
     """
     Build a single bin from segment end points.
     """
     faz, baz, dist = gd.inv(lon0, lat0, lon1, lat1)
-    _lon, _lat, _ = gd.fwd(lon0, lat0, faz + 90., width_m / 2.)
+    _lon, _lat, _ = gd.fwd(lon0, lat0, faz + 90., width / 2.)
     _bin = []
     # 1st bin corner
-    _lon, _lat, _ = gd.fwd(lon0, lat0, faz + 90., width_m / 2.)
+    _lon, _lat, _ = gd.fwd(lon0, lat0, faz + 90., width / 2.)
     _bin.append((_lon, _lat))
     # 2nd bin corner
-    _lon, _lat, _ = gd.fwd(lon1, lat1, faz + 90., width_m / 2.)
+    _lon, _lat, _ = gd.fwd(lon1, lat1, faz + 90., width / 2.)
     _bin.append((_lon, _lat))
     # 3rd bin corner
-    _lon, _lat, _ = gd.fwd(lon1, lat1, faz - 90., width_m / 2.)
+    _lon, _lat, _ = gd.fwd(lon1, lat1, faz - 90., width / 2.)
     _bin.append((_lon, _lat))
     # 4th bin corner
-    _lon, _lat, _ = gd.fwd(lon0, lat0, faz - 90., width_m / 2.)
+    _lon, _lat, _ = gd.fwd(lon0, lat0, faz - 90., width / 2.)
     _bin.append((_lon, _lat))
     return _bin
