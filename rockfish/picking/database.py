@@ -105,6 +105,9 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
             extra_event_fields = kwargs.pop('extra_event_fields')
         else:
             extra_event_fields = None
+        # tell user that this is a new database
+        if not os.path.isfile(database):
+            print "Creating new database: {:}".format(database)
         # create the base instance
         RockfishDatabaseConnection.__init__(self, database, *args, **kwargs)
         # build tables
