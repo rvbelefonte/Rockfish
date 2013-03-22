@@ -22,10 +22,7 @@ PICK_FIELDS = [
           ('error', 'REAL', 0.0, True, False),
           ('timestamp', 'TIMESTAMP', 'CURRENT_TIMESTAMP', True, False),
           ('method', 'TEXT', 'unknown', False, False),
-          ('data_file', 'TEXT', 'unknown', False, False),
-          ('ray_btm_x', 'REAL', None, False, False),
-          ('ray_btm_y', 'REAL', None, False, False),
-          ('ray_btm_z', 'REAL', None, False, False)]
+          ('data_file', 'TEXT', 'unknown', False, False)]
 
 EVENT_TABLE = 'events'
 EVENT_FIELDS = [

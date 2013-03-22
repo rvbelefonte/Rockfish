@@ -17,6 +17,19 @@ DEFAULT_RAYPATH_COLOR = '0.75'
 DEFAULT_TRAVELTIME_COLOR = 'k'
 DEFAULT_RESIDUAL_COLOR = 'k'
 
+# structure for new tables created by rayfan2db
+RAYPATH_TABLE = 'raypaths'
+RAYPATH_FIELDS = [#(name, sql_type, default_value, is_not_null, is_primary)
+                  ('event', 'TEXT', None, True, True),
+                  ('ensemble', 'INTEGER', None, True, True),
+                  ('trace', 'INTEGER', None, True, True),
+                  ('ray_btm_x', 'REAL', None, False, False),
+                  ('ray_btm_y', 'REAL', None, False, False),
+                  ('ray_btm_z', 'REAL', None, False, False),
+                  ('ray_x', 'TEXT', None, False, False),
+                  ('ray_y', 'TEXT', None, False, False),
+                  ('ray_z', 'TEXT', None, False, False)]
+
 
 class RayfanError(Exception):
     """
@@ -544,29 +557,43 @@ def readRayfanGroup(file, endian=ENDIAN):
 
 
 def rayfan2db(rayfan_file, raydb_file=':memory:', synthetic=False, noise=None,
-                  pickdb=None):
+              pickdb=None, raypaths=False):
     """
-    Read a rayfan file and store its data in a
+    Read a rayfan file and store its data in a database.
+
+    Data are stored in a modified version of a
     :class:`rockfish.picking.database.PickDatabaseConnection`.
 
-    :param rayfan_file: An open file-like object or a string which is
-        assumed to be a filename of a rayfan binary file.
-    :param raydb_file: The filename of the new database. Default is to create
+    Parameters
+    ----------
+    rayfan_file: {str, file}
+        An open file-like object or a string which is assumed to be a
+        filename of a rayfan binary file.
+    raydb_file: str, optional
+        The filename of the new database. Default is to create
         a new database in memory.
-    :param synthetic: Optional. Determines whether or not to record traced
-        traveltimes as picked traveltimes. Default is False.
-    :param noise: Maximum amplitude of random noise to add the travel times.
-        Default is to not add any noise.
-    :param pickdb: Optional. An active
-        :class:`rockfish.database.PickDatabaseConnection` for the picks used to
-        trace rays in the rayfan_file. Values for extra fields such as
-        trace_in_file are copied from this database to the new pick database
-        along with rayfan data. Default is ignore these extra fields.
+    synthetic: bool, optional
+        Determines whether or not to record traced traveltimes as picked 
+        traveltimes.
+    noise: {float, None}
+        Maximum amplitude of random noise to add the travel times.  If
+        ``None``, no noise is added.
+    pickdb: :class:`rockfish.database.PickDatabaseConnection`, optional
+        An active connection to the pick database that was used
+        trace rays in ``rayfan_file``. Values for extra fields (e.g., 
+        'trace_in_file') are copied from this database to the new
+        database along with rayfan data. Default is ignore these extra fields.
+    raypaths: bool, optional
+        If ``True``, raypath coordinates are stored as text in a new table
+        'raypaths'.
     """
     raydb = PickDatabaseConnection(raydb_file)
     rays = readRayfanGroup(rayfan_file)
     print "Adding {:} traveltimes to {:} ..."\
             .format(rays.nrays, raydb_file)
+    # add fields for raypaths
+    if raypaths:
+        raydb._create_table_if_not_exists(RAYPATH_TABLE, RAYPATH_FIELDS)
     ndb0 = raydb.execute('SELECT COUNT(rowid) FROM picks').fetchone()[0]
     for rfn in rays.rayfans:
         for i, _t in enumerate(rfn.travel_times):
@@ -592,31 +619,46 @@ def rayfan2db(rayfan_file, raydb_file=':memory:', synthetic=False, noise=None,
                 residual = rfn.residuals[i] 
             d = {'event': event,
                  'ensemble': rfn.start_point_id,
+                 'trace': rfn.end_point_ids[i],
                  'vm_branch': rfn.event_ids[i],
                  'vm_subid': rfn.event_subids[i],
                  'time' : time,
                  'time_reduced' : time_reduced,
                  'predicted' : predicted,
-                 'trace': rfn.end_point_ids[i],
                  'residual' : residual,
                  'error': rfn.pick_errors[i],
                  'source_x': sx, 'source_y': sy, 'source_z': sz,
                  'receiver_x': rx, 'receiver_y': ry, 'receiver_z': rz,
                  'offset': rfn.offsets[i],
                  'faz': rfn.azimuths[i],
-                 'method': 'rayfan2db()',
-                 'data_file': rays.file.name,
-                 'ray_btm_x': rays.bottom_points[i][0],
-                 'ray_btm_y': rays.bottom_points[i][1],
-                 'ray_btm_z': rays.bottom_points[i][2]}
+                 'method': 'rayfan2db({:})'.format(rayfan_file),
+                 'data_file': rays.file.name}
+            # Copy data from pickdb
             if pickdb is not None:
                 pick = pickdb.get_picks(event=[event],
                                         ensemble=[d['ensemble']],
                                         trace=[d['trace']])
                 if len(pick) > 0:
-                    d['trace_in_file'] = pick[0]['trace_in_file']
-
+                    for f in ['trace_in_file', 'line', 'site', 'data_file']:
+                        try:
+                            d[f] = pick[0][f]
+                        except KeyError:
+                            pass
+            # add data to standard tables
             raydb.update_pick(**d)
+            # add raypath data to new table
+            if raypaths:
+                d = {'event': event,
+                     'ensemble': rfn.start_point_id,
+                     'trace': rfn.end_point_ids[i],
+                     'ray_btm_x': rays.bottom_points[i][0],
+                     'ray_btm_y': rays.bottom_points[i][1],
+                     'ray_btm_z': rays.bottom_points[i][2],
+                     'ray_x': str([p[0] for p in rfn.paths[i]]),
+                     'ray_y': str([p[1] for p in rfn.paths[i]]),
+                     'ray_z': str([p[2] for p in rfn.paths[i]])}
+                raydb._insert(RAYPATH_TABLE, **d)
+
         raydb.commit()
     ndb = raydb.execute('SELECT COUNT(rowid) FROM picks').fetchone()[0]
     if (ndb - ndb0) != rays.nrays:
