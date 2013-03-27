@@ -14,7 +14,7 @@ TEST_3D_MODELS = ['pinchout3d.vm', 'cranis3d.vm']
 TEST_MODELS = TEST_2D_MODELS + TEST_3D_MODELS
 
 
-class vmTestCase(unittest.TestCase):
+class VMTestCase(unittest.TestCase):
     """
     Test cases for the vmtools modules.
     """
@@ -302,7 +302,7 @@ class vmTestCase(unittest.TestCase):
 
 
 def suite():
-    return unittest.makeSuite(vmTestCase, 'test')
+    return unittest.makeSuite(VMTestCase, 'test')
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

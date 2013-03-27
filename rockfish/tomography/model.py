@@ -909,6 +909,22 @@ class VM(object):
             zmax = min(self.r2[2], zmax)
         return range(self.z2i([zmin])[0], self.z2i([zmax])[0] + 1)
 
+    def xyz2ijk(self, x, y, z):
+        """
+        Converts three-component coordinates to indices.
+
+        Parameters
+        ----------
+        x, y, z: float
+            x, y, z coordinates
+
+        Returns
+        -------
+        i, j, k: int
+            Indices for the point x, y, z
+        """
+        return self.x2i([x])[0], self.y2i([y])[0], self.z2i([z])[0]
+
     def gridpoint2position(self, ix, iy, iz):
         """
         Returns the x,y,z coordinates coresponding to a set of model indices.
@@ -1503,6 +1519,28 @@ class VM(object):
         extents = (self.r1[dims[0]], self.r2[dims[0]],
                    self.r1[dims[1]], self.r2[dims[1]])
         return sl, bounds, extents, labels
+
+    def point2layer(self, x, y, z):
+        """
+        Find the layer that a point is in.
+
+        Parameters
+        ----------
+        x, y, z: float
+            x, y, z coordinates of the point
+
+        Returns
+        -------
+        ilyr: int
+            Index of the layer that the point is within.
+        """
+        ix = self.x2i([x])[0]
+        iy = self.y2i([y])[0]
+        for iref in range(self.nr + 1):
+            z0, z1 = self.get_layer_bounds(iref)
+            if (z >= z0[ix, iy]) and (z <= z1[ix, iy]):
+                return iref
+        return None
 
 
     # Properties
