@@ -1,7 +1,6 @@
 """
 Module for handling message printing by Rockfish.
 """
-
 import sys
 
 codeCodes = {
@@ -44,13 +43,13 @@ class ProgressPercentTicker(Colors):
     Prints progress as: [X%] <name>.
     """
 
-    def __init__(self,name,maxval,complete=0):
+    def __init__(self, title, name, maxval, complete=0):
         """
         :param name: Name to be appended to progress.
         :param maxval: Value at end of progress.
         :param complete: Optional.  Value currently completed. 
         """
-        print "       " + name,
+        print title + "       " + name,
         self.MAXVAL = maxval
         self.update(complete)
 
@@ -82,4 +81,26 @@ class ProgressPercentTicker(Colors):
         return float(complete)/self.MAXVAL * 100.
 
 
+class ProgressBar(object):
+    """
+    Manages a simple progress bar.
+    """
+    def __init__(self, title):
+        self.startProgress(title)
 
+    def startProgress(self, title):
+        sys.stdout.write(title + ": [" + "-"*40 + "]" + chr(8)*41)
+        sys.stdout.flush()
+        self.progress_x = 0
+
+    def progress(self, x):
+        x = x*40//100
+        sys.stdout.write("#"*(x - self.progress_x))
+        sys.stdout.flush()
+        self.progress_x = x
+
+    def endProgress(self):
+        sys.stdout.write("#"*(40 - self.progress_x))
+        sys.stdout.write("]\n")
+        sys.stdout.flush()
+    
