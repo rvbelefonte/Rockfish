@@ -4,7 +4,7 @@ Defines the header structures and some other dictionaries needed for SEG Y read
 and write support.
 """
 
-from obspy.segy import pack, unpack
+from rockfish.segy import pack, unpack
 import numpy as np
 
 # The format of the 400 byte long binary file header.
