@@ -3,8 +3,11 @@ Routines for filtering data
 """
 
 from rockfish.utils.messaging import ProgressPercentTicker
-from obspy.signal import filter
 import numpy as np
+try:
+    from obspy.signal import filter
+except ImportError:
+    pass
 
 class SEGYFilters():
     """
