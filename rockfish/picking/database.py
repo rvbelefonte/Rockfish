@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from rockfish.database.database import RockfishDatabaseConnection
 from rockfish.database.utils import format_row_factory, format_search
 from rockfish.segy.segy import readSEGY
+from rockfish.utils.user_input import query_yes_no
+
 
 # Default tables and fields
 PICK_TABLE = 'picks'
@@ -209,6 +211,29 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         :type event: ``str``
         """
         return self._count_distinct(self.PICK_TABLE, event=event)
+
+    def drop(db, name, startswith=True, endswith=True, includes=True, 
+             confirm=True):
+        """
+        Drop tables and/or views matching a name.
+        """
+        sql = "SELECT name, type FROM sqlite_master"
+        sql += " WHERE type='table' OR type='view'"
+        for name_, type_ in db.execute(sql).fetchall():
+            drop = False
+            if name_ == name:
+                drop = True
+            elif startswith and (str(name_).startswith(name)):
+                drop = True
+            elif endswith and (str(name_).endswith(name)):
+                drop = True
+            elif includes and (name in name_):
+                drop = True
+            if drop and confirm:
+                drop = query_yes_no('Drop {:} {:}?'.format(type_, name_))
+            if drop:
+                sql = 'DROP {:} {:}'.format(type_, name_)
+                db.execute(sql)
 
     def add_pick(self, **kwargs):
         """
