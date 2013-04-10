@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from rockfish.database.database import RockfishDatabaseConnection
 from rockfish.database.utils import format_row_factory, format_search
 from rockfish.segy.segy import readSEGY
-from rockfish.utils.user_input import query_yes_no
+
 
 
 # Default tables and fields
@@ -212,29 +212,6 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         return self._count_distinct(self.PICK_TABLE, event=event)
 
-    def drop(db, name, startswith=True, endswith=True, includes=True, 
-             confirm=True):
-        """
-        Drop tables and/or views matching a name.
-        """
-        sql = "SELECT name, type FROM sqlite_master"
-        sql += " WHERE type='table' OR type='view'"
-        for name_, type_ in db.execute(sql).fetchall():
-            drop = False
-            if name_ == name:
-                drop = True
-            elif startswith and (str(name_).startswith(name)):
-                drop = True
-            elif endswith and (str(name_).endswith(name)):
-                drop = True
-            elif includes and (name in name_):
-                drop = True
-            if drop and confirm:
-                drop = query_yes_no('Drop {:} {:}?'.format(type_, name_))
-            if drop:
-                sql = 'DROP {:} {:}'.format(type_, name_)
-                db.execute(sql)
-
     def add_pick(self, **kwargs):
         """
         Add a new pick to the database.
@@ -256,12 +233,12 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         for k in kwargs:
             if k in pick_fields:
                 pick[k] = kwargs[k]
-        self._insert(self.PICK_TABLE, **pick)
+        self.insert(self.PICK_TABLE, **pick)
         # create entries in metadata tables if they don't already exist
         for table in [self.EVENT_TABLE, self.TRACE_TABLE]:
             values = self._select_field_values(table, **kwargs)
             logging.debug('Adding ' + str(values) + " to table '%s'" % table)
-            self._insertupdate(table, **values)
+            self.insertupdate(table, **values)
 
     def remove_pick(self, **kwargs):
         """
@@ -288,7 +265,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         for table in [self.PICK_TABLE, self.EVENT_TABLE, self.TRACE_TABLE]:
             values = self._select_field_values(table, **kwargs)
             logging.debug('Adding ' + str(values) + " to table '%s'" % table)
-            self._insertupdate(table, **values)
+            self.insertupdate(table, **values)
 
     def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat',
                      shotfile='shots.dat', directory='.', step=1, **kwargs):

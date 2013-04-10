@@ -3,6 +3,8 @@ General database tools
 """
 import sqlite3
 import logging
+import warnings
+from rockfish.utils.user_input import query_yes_no
 
 
 class RockfishDatabaseConnection(sqlite3.Connection):
@@ -28,6 +30,16 @@ class RockfishDatabaseConnection(sqlite3.Connection):
             self.execute(sql)
 
     def _insert(self, table, **kwargs):
+        """
+        Adds an entry to a table.
+
+        Will be decreciated soon. Use insert() instead.
+        """
+        msg = '_insert() will be removed in the future, use insert() instead.'
+        warnings.PendingDeprecationWarning(msg)
+        return self.insert(self, table, **kwargs)
+
+    def insert(self, table, **kwargs):
         """
         Adds an entry to a table.
 
@@ -110,6 +122,45 @@ class RockfishDatabaseConnection(sqlite3.Connection):
             values = ['{:}="{:}"'.format(k, kwargs[k]) for k in kwargs]
             sql += ' WHERE ' + ' and '.join(values)
         return self.execute(sql).fetchall()[0][0]
+
+    def _get_tables(self):
+        """
+        Returns a list of tables in the database.
+        """
+        sql = "SELECT name FROM sqlite_master WHERE type='table'"
+        return [d[0] for d in self.execute(sql)]
+    tables = property(_get_tables)
+
+    def _get_views(self):
+        """
+        Returns a list of views in the database.
+        """
+        sql = "SELECT name FROM sqlite_master WHERE type='view'"
+        return [d[0] for d in self.execute(sql)]
+    views = property(_get_views)
+
+    def drop(self, name, startswith=True, endswith=True, includes=True, 
+             confirm=True):
+        """
+        Drop tables and/or views matching a name.
+        """
+        sql = "SELECT name, type FROM sqlite_master"
+        sql += " WHERE type='table' OR type='view'"
+        for name_, type_ in self.execute(sql).fetchall():
+            drop = False
+            if name_ == name:
+                drop = True
+            elif startswith and (str(name_).startswith(name)):
+                drop = True
+            elif endswith and (str(name_).endswith(name)):
+                drop = True
+            elif includes and (name in name_):
+                drop = True
+            if drop and confirm:
+                drop = query_yes_no('Drop {:} {:}?'.format(type_, name_))
+            if drop:
+                sql = 'DROP {:} {:}'.format(type_, name_)
+                self.execute(sql)
 
     def print_pragma(self, table):
         """
