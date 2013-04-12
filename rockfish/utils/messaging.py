@@ -25,6 +25,7 @@ class Colors:
     OKBLUE = "\033["+codeCodes['blue']+"m"
     OKGREEN = "\033["+codeCodes['green']+"m"
     WARNING = "\033["+codeCodes['purple']+"m"
+    INFO = "\033["+codeCodes['bright gray']+"m"
     FAIL = "\033["+codeCodes['red']+"m"
     ENDC = "\033["+codeCodes['normal']+"m"
 

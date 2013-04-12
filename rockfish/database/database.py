@@ -4,6 +4,7 @@ General database tools
 import sqlite3
 import logging
 import warnings
+from rockfish.utils.messaging import Colors as TermColors
 from rockfish.utils.user_input import query_yes_no
 
 
@@ -139,8 +140,8 @@ class RockfishDatabaseConnection(sqlite3.Connection):
         return [d[0] for d in self.execute(sql)]
     views = property(_get_views)
 
-    def drop(self, name, startswith=True, endswith=True, includes=True, 
-             confirm=True):
+    def drop(self, name, startswith=False, endswith=False, includes=False, 
+             like=False, confirm=True):
         """
         Drop tables and/or views matching a name.
         """
@@ -150,14 +151,17 @@ class RockfishDatabaseConnection(sqlite3.Connection):
             drop = False
             if name_ == name:
                 drop = True
-            elif startswith and (str(name_).startswith(name)):
+            elif (startswith or like) and (str(name_).startswith(name)):
                 drop = True
-            elif endswith and (str(name_).endswith(name)):
+            elif (endswith or like) and (str(name_).endswith(name)):
                 drop = True
-            elif includes and (name in name_):
+            elif (includes or like) and (name in name_):
                 drop = True
             if drop and confirm:
-                drop = query_yes_no('Drop {:} {:}?'.format(type_, name_))
+                print TermColors.WARNING,
+                drop = query_yes_no('Drop {:} {:}?'.format(type_, name_),
+                                    default='no')
+                print TermColors.ENDC
             if drop:
                 sql = 'DROP {:} {:}'.format(type_, name_)
                 self.execute(sql)
