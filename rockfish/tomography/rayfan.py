@@ -218,13 +218,15 @@ class RayfanGroup(object):
             x = [p[iend][idim] for p in rfn.paths]
             if picked:
                 for i, t in enumerate(rfn.pick_times):
-                    c = get_dict_default(rfn.event_ids[i], event_colors, default_color)
+                    c = get_dict_default(rfn.event_ids[i], event_colors,
+                                         default_color)
                     ax.errorbar(x[i], t, yerr=rfn.pick_errors[i], fmt=c + '.',
                                 markersize=0, capsize=0)
             if traced:
                 for i, t in enumerate(rfn.travel_times):
-                    c = get_dict_default(rfn.event_ids[i], event_colors, default_color)
-                    ax.plot(x[i], t, '.' + c, markersize=5)
+                    c = get_dict_default(rfn.event_ids[i], event_colors,
+                                         default_color)
+                    ax.scatter(x[i], t, marker='.', color=c, s=1, linewidths=0)
         plt.xlabel('{:} {:} (km)'.format(end, dimension))
         plt.ylabel('t (s)')
         if outfile:
@@ -273,7 +275,7 @@ class RayfanGroup(object):
             for i, e in enumerate(rfn.residuals):
                 c = get_dict_default(rfn.event_ids[i], event_colors, 
                                      default_color)
-                ax.plot(x[i], e, '.' + c, markersize=5)
+                ax.scatter(x[i], e, marker='.', color=c, s=5, linewidths=0)
         plt.xlabel('{:} {:} (km)'.format(end, dimension))
         plt.ylabel('Error (s)')
         if outfile:

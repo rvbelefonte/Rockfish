@@ -108,7 +108,7 @@ class RockfishDatabaseConnection(sqlite3.Connection):
         else:
             logging.debug('adding new...')
             # add a new row
-            self._insert(table, **kwargs)
+            self.insert(table, **kwargs)
 
     def _count(self, table, **kwargs):
         """

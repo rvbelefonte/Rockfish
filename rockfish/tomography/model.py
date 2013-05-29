@@ -1252,7 +1252,7 @@ class VM(object):
 
     def _plot2d(self, velocity=True, ax=None, rf=True, ir=True, ij=True,
                 grid=None, colorbar=True, vmin=None, vmax=None, outfile=None,
-                aspect=None):
+                aspect=None, ylim=None, xlim=None):
         """
         Plot a 2D model.
 
@@ -1313,8 +1313,15 @@ class VM(object):
             if ij:
                 idx = np.nonzero(self.ij[iref].flatten() >= 0)
                 ax.plot(self.x[idx], self.rf[iref][idx], '-k', linewidth=3)
-        plt.xlim(self.r1[0], self.r2[0])
-        plt.ylim(self.r2[2], self.r1[2])
+
+        if xlim is None:
+            plt.xlim(self.r1[0], self.r2[0])
+        else:
+            plt.xlim(xlim)
+        if ylim is None:
+            plt.ylim(self.r2[2], self.r1[2])
+        else:
+            plt.ylim(ylim)
         plt.xlabel('Offset (km)')
         plt.ylabel('Depth (km)')
         if colorbar:
@@ -1360,7 +1367,7 @@ class VM(object):
                    outfile=outfile)
 
     def plot_profile(self, x=None, y=None, z=None, velocity=True,
-                     ax=None, apply_jumps=True):
+                     ax=None, apply_jumps=True, **kwargs):
         """
         Plot a 1D profile from the model grid.
 
@@ -1381,10 +1388,11 @@ class VM(object):
             z = None
         if (x is not None) and (y is not None) and (z is None):
             # Plot z vs. v
+            z0 = kwargs.pop('z0', 0)
             ix, = self.x2i([x])
             iy, = self.y2i([y])
             xval = self.sl[ix, iy, :]
-            yval = self.z
+            yval = self.z - z0
             ylabel = 'Depth (km)'
             title = 'x = {:}, y = {:} (km)'.format(x, y)
             reverse = True
@@ -1429,7 +1437,7 @@ class VM(object):
         else:
             show = False
         # Plot
-        ax.plot(xval, yval)
+        ax.plot(xval, yval, **kwargs)
         if reverse:
             ax.set_ylim(ax.get_ylim()[::-1])
         plt.title(title)

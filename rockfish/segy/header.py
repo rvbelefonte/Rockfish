@@ -159,7 +159,6 @@ TRACE_HEADER_FORMAT = [
 
 TRACE_HEADER_KEYS = [_i[1] for _i in TRACE_HEADER_FORMAT]
 
-
 # Functions that unpack the chosen data format. The keys correspond to the
 # number given for each format by the SEG Y format reference.
 DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS = {
