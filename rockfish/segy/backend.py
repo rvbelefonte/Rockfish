@@ -19,7 +19,6 @@ from rockfish.segy.util import unpack_header_value, get_scaled_coordinate,\
     set_unscaled_coordinate, get_scaled_elevation, set_unscaled_elevation 
 from struct import pack, unpack
 from unpack import OnTheFlyDataUnpacker
-from pyproj import Geod
 import datetime
 import math
 import StringIO
@@ -27,6 +26,11 @@ import numpy as np
 import os
 import warnings
 import logging
+
+try:
+    from pyproj import Geod
+except:
+    warnings.warn('pyproj not installed, needed for projection routines')
 
 #logging.basicConfig(level=logging.DEBUG)
 
