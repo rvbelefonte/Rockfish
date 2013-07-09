@@ -3,7 +3,7 @@ Test suite for the database module
 """
 import os
 import inspect
-import sqlite3
+from pyspatialite.dbapi2 import Connection as SpatialiteConnection
 import unittest
 from rockfish.database.database import RockfishDatabaseConnection
 
@@ -21,7 +21,7 @@ class DatabaseTestCase(unittest.TestCase):
         # no file should be created
         self.assertFalse(os.path.isfile(':memory:'))
         # should inherit from sqlite3.Connection
-        for member in inspect.getmembers(sqlite3.Connection):
+        for member in inspect.getmembers(SpatialiteConnection):
             self.assertTrue(hasattr(db, member[0]))
         # should create a connection to a new file on the disk
         filename = 'temp.sqlite'

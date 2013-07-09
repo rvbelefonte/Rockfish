@@ -877,20 +877,24 @@ class SEGYScaledTraceHeader(SEGYTraceHeader):
         return get_scaled_elevation(self, 'surface_elevation_at_source')
 
     def _set_unscaled_surface_elevation_at_source(self, value):
-        return set_unscaled_elevation(self, 'surface_elevation_at_source', value)
+        return set_unscaled_elevation(self,
+                                      'surface_elevation_at_source', value)
 
     def _get_scaled_source_depth_below_surface(self):
-        return get_scaled_elevation(self, 'source_depth_below_surface')
+        return get_scaled_elevation(self,
+                                    'source_depth_below_surface')
 
     def _set_unscaled_source_depth_below_surface(self, value):
-        return set_unscaled_elevation(self, 'source_depth_below_surface', value)
+        return set_unscaled_elevation(self,
+                                      'source_depth_below_surface', value)
 
     def _get_scaled_datum_elevation_at_receiver_group(self):
         return get_scaled_elevation(self, 'datum_elevation_at_receiver_group')
 
     def _set_unscaled_datum_elevation_at_receiver_group(self, value):
-        return set_unscaled_elevation(self, 'datum_elevation_at_receiver_group',
-                                     value)
+        return set_unscaled_elevation(self,
+                                      'datum_elevation_at_receiver_group',
+                                      value)
 
     def _get_scaled_datum_elevation_at_source(self):
         return get_scaled_elevation(self, 'datum_elevation_at_source')
@@ -906,14 +910,18 @@ class SEGYScaledTraceHeader(SEGYTraceHeader):
 
     # register the scaled properties
     logging.debug('Registering scaled properties.')
-    scaled_source_coordinate_x = property(fget=_get_scaled_source_coordinate_x, 
-                                          fset=_set_unscaled_source_coordinate_x)
-    scaled_source_coordinate_y = property(fget=_get_scaled_source_coordinate_y, 
-                                          fset=_set_unscaled_source_coordinate_y)
-    scaled_group_coordinate_x = property(fget=_get_scaled_group_coordinate_x, 
-                                         fset=_set_unscaled_group_coordinate_x)
-    scaled_group_coordinate_y = property(fget=_get_scaled_group_coordinate_y, 
-                                         fset=_set_unscaled_group_coordinate_y)
+    scaled_source_coordinate_x = property(
+        fget=_get_scaled_source_coordinate_x,
+        fset=_set_unscaled_source_coordinate_x)
+    scaled_source_coordinate_y = property(
+        fget=_get_scaled_source_coordinate_y, 
+        fset=_set_unscaled_source_coordinate_y)
+    scaled_group_coordinate_x = property(
+        fget=_get_scaled_group_coordinate_x, 
+        fset=_set_unscaled_group_coordinate_x)
+    scaled_group_coordinate_y = property(
+        fget=_get_scaled_group_coordinate_y, 
+        fset=_set_unscaled_group_coordinate_y)
     scaled_receiver_group_elevation = property(
         fget=_get_scaled_receiver_group_elevation,
         fset=_set_unscaled_receiver_group_elevation)
@@ -987,6 +995,8 @@ class SEGYComputedTraceHeader(SEGYScaledTraceHeader):
             if faz < 0: faz += 360.
             baz = faz - 180
             if baz < 0: baz += 360
+            if baz > 180:
+                dist_m *= -1
         else:
             msg = '''
                   coordinate_units must equal 1 or 2,
