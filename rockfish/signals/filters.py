@@ -34,14 +34,10 @@ class SEGYFilters():
         """
         if not traces:
             traces = self.traces
-        pb = ProgressPercentTicker("Bandpass filtering %i traces..." \
-                                   % len(traces), len(traces))
         for i,tr in enumerate(traces):
             df = 1./(tr.header.sample_interval_in_ms_for_this_trace/1.e6)
             tr.data = filter.bandpass(tr.data, freqmin, freqmax, df, 
                                       corners=corners, zerophase=zerophase)
-            pb.update(i)
-        pb.finish()
 
     def bandstop(self, freqmin, freqmax, corners=4, zerophase=False, 
                  traces=None):

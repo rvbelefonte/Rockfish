@@ -163,6 +163,7 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
         else:
             show = False
         splt = SEGYPlotter(ax, self)
+        print 'Plotting wiggles...'
         splt.plot_wiggles(traces=traces, negative_fills=negative_fills,                                  positive_fills=positive_fills,
                           wiggle_traces=wiggle_traces)
         if show:

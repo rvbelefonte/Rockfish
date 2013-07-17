@@ -115,6 +115,7 @@ def snr(data, i=None, iref=None, window_size=10,
     # Return SNR
     return rms1 / rms0
 
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

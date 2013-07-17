@@ -64,7 +64,8 @@ class SEGYHeaderDatabase(RockfishDatabaseConnection):
         sql += ' VALUES (%s)' % ', '.join(['?' for a in self.TRACE_FIELDS])
         data = []
         for tr in segy.traces:
-            data.append(tuple([self._get_header_attribute(tr.header, a[0])\
+            data.append(tuple([str(
+                self._get_header_attribute(tr.header, a[0]))\
                                for a in self.TRACE_FIELDS]))
 
         self.executemany(sql, data)

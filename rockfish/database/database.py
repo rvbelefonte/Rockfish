@@ -2,22 +2,21 @@
 General database tools
 """
 import sqlite3
-from pyspatialite.dbapi2 import Connection as SpatialiteConnection
+from sqlite3 import OperationalError
 import logging
 import warnings
 from rockfish.utils.messaging import Colors as TermColors
 from rockfish.utils.user_input import query_yes_no
 
 
-class RockfishDatabaseConnection(SpatialiteConnection):
+class RockfishDatabaseConnection(sqlite3.Connection):
     """
     Base class for creating a database connection.
     """
     def __init__(self, database, *args, **kwargs):
-        SpatialiteConnection.__init__(self, database, *args, **kwargs)
+        sqlite3.Connection.__init__(self, database, *args, **kwargs)
         # enable case-insensative keyword access to data rows
-        #XXX self.row_factory = sqlite3.Row
-        self.execute('SELECT InitSpatialMetadata()')
+        self.row_factory = sqlite3.Row
 
     def _add_field_if_not_exists(self, table, name, sql_type='TEXT'):
         """

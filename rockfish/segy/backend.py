@@ -16,7 +16,8 @@ from rockfish.segy.header import ENDIAN, DATA_SAMPLE_FORMAT_UNPACK_FUNCTIONS, \
     BINARY_FILE_HEADER_FORMAT, DATA_SAMPLE_FORMAT_PACK_FUNCTIONS, \
     TRACE_HEADER_FORMAT, DATA_SAMPLE_FORMAT_SAMPLE_SIZE, TRACE_HEADER_KEYS
 from rockfish.segy.util import unpack_header_value, get_scaled_coordinate,\
-    set_unscaled_coordinate, get_scaled_elevation, set_unscaled_elevation 
+    set_unscaled_coordinate, get_scaled_elevation, set_unscaled_elevation
+from rockfish.signals.amplitudes import rms
 from struct import pack, unpack
 from unpack import OnTheFlyDataUnpacker
 import datetime
@@ -679,6 +680,10 @@ class SEGYTrace(object):
             msg = "'%s' object has no attribute '%s'" % \
                   (self.__class__.__name__, name)
             raise AttributeError(msg)
+
+    def _calc_rms(self):
+        return rms(self.data)
+    rms = property(fget=_calc_rms)
 
 
 class SEGYTraceHeader(object):
