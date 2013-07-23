@@ -238,7 +238,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         for table in [self.EVENT_TABLE, self.TRACE_TABLE]:
             values = self._select_field_values(table, **kwargs)
             logging.debug('Adding ' + str(values) + " to table '%s'" % table)
-            self.insertupdate(table, **values)
+            self._insertupdate(table, **values)
 
     def remove_pick(self, **kwargs):
         """
@@ -265,7 +265,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         for table in [self.PICK_TABLE, self.EVENT_TABLE, self.TRACE_TABLE]:
             values = self._select_field_values(table, **kwargs)
             logging.debug('Adding ' + str(values) + " to table '%s'" % table)
-            self.insertupdate(table, **values)
+            self._insertupdate(table, **values)
 
     def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat',
                      shotfile='shots.dat', directory='.', step=1, **kwargs):
