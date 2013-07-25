@@ -64,6 +64,7 @@ import logging
 from pyspatialite.dbapi2 import Connection as SQLiteConnection
 from pyspatialite.dbapi2 import IntegrityError
 from rockfish.utils.user_input import query_yes_no
+from rockfish.database.utils import format_search, format_row_factory
 
 DEFAULT_EPSG = 4326
 
@@ -78,6 +79,10 @@ sql_POINT_XYZ = lambda x, y, z, epsg:\
 
 sql_POINT_XY = lambda x, y, epsg:\
         "GeomFromText('POINT({:} {:})', {:})".format(x, y, epsg)
+
+sql_LINESTRING_XZ = lambda pts, epsg: "GeomFromText('LINESTRING({:})', {:})"\
+        .format(', '.join(['{:} {:}'.format(p[0], p[1]) for p in pts]),
+                epsg)
 
 def pad(value):
 
@@ -112,8 +117,9 @@ class DatabaseConnection(SQLiteConnection):
 
     def _init_spatial_metadata(self):
 
-        sql = 'SELECT InitSpatialMetadata()'
-        self.execute(sql)
+        if 'spatial_ref_sys' not in self.TABLES:
+            sql = 'SELECT InitSpatialMetadata()'
+            self.execute(sql)
 
     def executefile(self, sqlfile):
         """
@@ -315,7 +321,14 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         self._create_receiver_table(rebuild=rebuild)
         self._create_events_table(rebuild=rebuild)
         self._create_picks_table(rebuild=rebuild)
+        self._create_dummy_picks_table(rebuild=rebuild)
         self._create_rays_table(rebuild=rebuild)
+        self._create_model_lines_table(rebuild=rebuild)
+        self._create_model_lines_view(rebuild=rebuild)
+        self._create_vminst_view(rebuild=rebuild)
+        self._create_vmshots_view(rebuild=rebuild)
+        self._create_vmpicks_view(rebuild=rebuild)
+        self._create_vmdummypicks_view(rebuild=rebuild)
         self._create_epsg_definitions(rebuild=rebuild)
 
     def _create_epsg_definitions(self, rebuild=False, view='epsg'):
@@ -323,6 +336,8 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         if rebuild:
             sql = 'DROP VIEW IF EXISTS {:}'.format(view)
             self.execute(sql)
+        else:
+            return
 
         logging.info("(Re)creating view '{:}'".format(view))
         sql = 'CREATE VIEW {:} AS'.format(view)
@@ -413,12 +428,37 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
 	           rid INTEGER NOT NULL,
 	           time FLOAT NOT NULL,
 	           error FLOAT NOT NULL,
+               model_line TEXT,
 	           trace_in_file INTEGER,
 	           data_file TEXT,
 	           PRIMARY KEY (event, sid, rid),
+               FOREIGN KEY (model_line) REFERENCES model_lines(name),
 	           FOREIGN KEY (sid) REFERENCES source_pts(sid),
 	           FOREIGN KEY (rid) REFERENCES receiver_pts(rid),
 	           FOREIGN KEY (event) REFERENCES events(event));
+               """
+        self.execute(sql)
+
+    def _create_dummy_picks_table(self, rebuild=False, table='dummy_picks'):
+
+        if rebuild:
+            sql = 'DROP TABLE IF EXISTS {:}'.format(table)
+            self.execute(sql)
+        elif table in self.TABLES:
+            return
+
+        logging.info("(Re)creating table '{:}'".format(table))
+        sql = 'CREATE TABLE {:} ('.format(table)
+        sql += """
+	           sid INTEGER NOT NULL,
+	           rid INTEGER NOT NULL,
+               model_line TEXT,
+	           trace_in_file INTEGER,
+	           data_file TEXT,
+	           PRIMARY KEY (sid, rid, data_file),
+               FOREIGN KEY (model_line) REFERENCES model_lines(name),
+	           FOREIGN KEY (sid) REFERENCES source_pts(sid),
+	           FOREIGN KEY (rid) REFERENCES receiver_pts(rid));
                """
         self.execute(sql)
 
@@ -434,16 +474,130 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         sql = 'CREATE TABLE {:} ('.format(table)
         sql += """
         	   event TEXT NOT NULL,
-	           source_id INTEGER NOT NULL,
-	           receiver_id INTEGER NOT NULL,
+	           sid INTEGER NOT NULL,
+	           rid INTEGER NOT NULL,
 	           time FLOAT NOT NULL,
 	           path BLOB NOT NULL,
-	           PRIMARY KEY (event, source_id, receiver_id),
-	           FOREIGN KEY (source_id, receiver_id)
-                    REFERENCES receiver_ids(source_id, receiver_id),
+               model_line TEXT,
+               vm_model TEXT,
+	           PRIMARY KEY (event, sid, rid, vm_model),
+               FOREIGN KEY (model_line) REFERENCES model_lines(name),
+	           FOREIGN KEY (rid) REFERENCES receiver_pts(rid)
+	           FOREIGN KEY (sid) REFERENCES source_pts(sid)
 	           FOREIGN KEY (event) REFERENCES events(event));
                """
         self.execute(sql)
+
+    def _create_model_lines_table(self, rebuild=False, table='model_lines'):
+
+        if rebuild:
+            sql = 'DROP TABLE IF EXISTS {:}'.format(table)
+            self.execute(sql)
+        elif table in self.TABLES:
+            return
+
+        logging.info("(Re)creating table '{:}'".format(table))
+        sql = 'CREATE TABLE {:} ('.format(table)
+        sql += """
+        	   name TEXT NOT NULL,
+               vminst_view TEXT NOT NULL,
+               vmshots_view TEXT NOT NULL,
+               vmpicks_view TEXT NOT NULL,
+               vmdummypicks_view TEXT NOT NULL,
+               PRIMARY KEY (name)
+               )
+               """
+        self.execute(sql)
+
+        sql = "SELECT AddGeometryColumn('{:}', 'geom',"\
+                .format(table)
+        sql += " {:}, 'LINESTRING', 'XY')".format(self.EPSG)
+        self.execute(sql)
+
+    def _create_model_lines_view(self, rebuild=False,
+                                 view='model_line_endpts'):
+
+        if rebuild:
+            sql = 'DROP VIEW IF EXISTS {:}'.format(view)
+            self.execute(sql)
+        elif view in self.VIEWS:
+            return
+
+        logging.info("(Re)creating view '{:}'".format(view))
+        sql = 'CREATE VIEW {:}'.format(view)
+        sql += ' AS SELECT name, StartPoint(geom) as sol'
+        sql += ', EndPoint(geom) as eol, GLength(geom) as length'
+        sql += ' FROM model_lines'
+        self.execute(sql)
+        self.commit()
+
+    def _create_vminst_view(self, rebuild=False, view='vminst'):
+
+        if rebuild:
+            sql = 'DROP VIEW IF EXISTS {:}'.format(view)
+            self.execute(sql)
+        if view in self.VIEWS:
+            return
+
+        sql = 'CREATE VIEW {:}'.format(view)
+        sql += ' AS SELECT rid, X(geom)/1000. AS rx, Y(geom)/1000. AS ry,'
+        sql += ' -Z(geom)/1000. AS rz'
+        sql += ' FROM receiver_pts'
+        self.execute(sql)
+        self.commit()
+
+    def _create_vmshots_view(self, rebuild=False, view='vmshots'):
+
+        if rebuild:
+            sql = 'DROP VIEW IF EXISTS {:}'.format(view)
+            self.execute(sql)
+        if view in self.VIEWS:
+            return
+
+        sql = 'CREATE VIEW {:}'.format(view)
+        sql += ' AS SELECT sid, X(geom)/1000. AS sx, Y(geom)/1000. AS sy,'
+        sql += ' -Z(geom)/1000. AS sz'
+        sql += ' FROM source_pts'
+        self.execute(sql)
+        self.commit()
+
+    def _create_vmpicks_view(self, rebuild=False, view='vmpicks'):
+
+        if rebuild:
+            sql = 'DROP VIEW IF EXISTS {:}'.format(view)
+            self.execute(sql)
+        if view in self.VIEWS:
+            return
+
+        sql = 'CREATE VIEW {:}'.format(view)
+        sql += ' AS SELECT p.rid as rid, p.sid as sid,'
+        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' Distance(r.geom, s.geom)/1000. as offset,'
+        sql += ' p.time as time, p.error as error'
+        sql += ' FROM picks as p NATURAL JOIN events as e'
+        sql += ' NATURAL JOIN receiver_pts as r NATURAL JOIN source_pts as s'
+        self.execute(sql)
+        self.commit()
+
+    def _create_vmdummypicks_view(self, rebuild=False, view='vmdummypicks'):
+
+        if rebuild:
+            sql = 'DROP VIEW IF EXISTS {:}'.format(view)
+            self.execute(sql)
+        if view in self.VIEWS:
+            return
+
+        sql = 'CREATE VIEW {:}'.format(view)
+        sql += ' AS SELECT p.rid as rid, p.sid as sid,'
+        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' Distance(r.geom, s.geom)/1000. as offset,'
+        sql += ' 0.0 as time, 0.0 as error, event, trace_in_file, data_file'
+        sql += ' FROM events as e, dummy_picks as p'
+        sql += ' INNER JOIN receiver_pts as r ON p.rid=r.rid'
+        sql += ' INNER JOIN source_pts as s ON p.sid=s.sid'
+        sql += ' ORDER BY data_file, trace_in_file, branch, subbranch'
+        self.execute(sql)
+        self.commit()
 
     def verify(self):
         """
@@ -542,31 +696,40 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         """
         raise NotImplementedError
 
-    def insert_geom_from_SEGY(self, segy, epsg=DEFAULT_EPSG):
+    def insert_geom_from_SEGY(self, segy, epsg=DEFAULT_EPSG, model_line=None):
         """
         Inserts source and receiver geometry from a SEGYFile
         """
-        for tr in segy.traces:
+        for i, tr in enumerate(segy.traces):
             rid = tr.header.ensemble_number
-            rx = tr.header.scaled_source_coordinate_x
-            ry = tr.header.scaled_source_coordinate_y
-            rz = tr.header.datum_elevation_at_receiver_group
-            geom = format_point_sql(rx, ry, epsg)
+            rx = tr.header.scaled_group_coordinate_x
+            ry = tr.header.scaled_group_coordinate_y
+            rz = tr.header.scaled_receiver_group_elevation 
+            geom = sql_POINT_XYZ(rx, ry, rz, epsg)
         
             if self._count('receiver_pts', rid=rid) == 0:
-                sql = 'INSERT INTO receiver_pts(rid, rz, geom)'
-                sql += ' VALUES({:}, {:}, {:})'.format(rid, rz, geom)
+                sql = 'INSERT INTO receiver_pts(rid, geom)'
+                sql += ' VALUES({:}, {:})'.format(rid, geom)
                 self.execute(sql)
 
             sid = tr.header.trace_number_within_the_ensemble
             sx = tr.header.scaled_source_coordinate_x
             sy = tr.header.scaled_source_coordinate_y
-            sz = tr.header.scaled_datum_elevation_at_source
-            geom = format_point_sql(sx, sy, epsg)
+            sz = -tr.header.scaled_source_depth_below_surface
+            geom = sql_POINT_XYZ(sx, sy, sz, epsg)
 
             if self._count('source_pts', sid=sid) == 0:
-                sql = 'INSERT INTO source_pts(sid, sz, geom)'
-                sql += ' VALUES({:}, {:}, {:})'.format(sid, sz, geom)
+                sql = 'INSERT INTO source_pts(sid, geom)'
+                sql += ' VALUES({:}, {:})'.format(sid, geom)
+                self.execute(sql)
+           
+            data_file = os.path.basename(segy.file.name)
+            if self._count('dummy_picks', rid=rid, sid=sid,
+                           data_file=data_file) == 0:
+                sql = 'INSERT INTO dummy_picks'
+                sql += '(sid, rid, model_line, trace_in_file, data_file)'
+                sql += " VALUES({:}, {:}, '{:}', {:}, '{:}')"\
+                        .format(sid, rid, model_line, i, data_file)
                 self.execute(sql)
 
             logging.info('ensemble=rid: {:}, trace=sid: {:}'\
@@ -574,8 +737,234 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
 
         self.commit()
 
-    def create_2d_line(self, sol, eol=None, epsg=DEFAULT_EPSG, filter=None):
+    def insert_rayfan(self, rays, model_line=None, vm_model=None):
+
+        if vm_model is not None:
+            sql = "DELETE FROM rays WHERE vm_model='{:}'"\
+                    .format(vm_model)
+
+        for rfn in rays.rayfans:
+
+            rid = rfn.start_point_id
+
+            for i in range(rfn.nrays):
+                sid = rfn.end_point_ids[i]
+
+                branch = rfn.event_ids[i]
+                subbranch = rfn.event_subids[i]
+
+                sql = 'SELECT event FROM events WHERE'
+                sql += ' vmtomo_branch={:} AND vmtomo_subbranch={:}'\
+                        .format(branch, subbranch)
+                event = self.execute(sql).fetchone()[0]
+
+                time = rfn.travel_times[i]
+                path = rfn.paths[i]
+
+                sql = 'INSERT INTO rays'
+                sql += '(event, sid, rid, time, path, model_line, vm_model)'
+                sql += " VALUES('{:}', {:}, {:}, {:}, '{:}', '{:}', '{:}')"\
+                        .format(event, sid, rid, time, path, model_line,
+                                vm_model)
+                self.execute(sql)
+
+        self.commit()
+
+    def create_2d_model_line(self, name, pts, epsg=DEFAULT_EPSG):
         """
-        Creates a new 2D line to project receiver_ids onto.
+        Creates a new 2D line to project source, receiver points onto.
         """
-        raise NotImplementedError
+        geom = sql_LINESTRING_XZ(pts, epsg)
+
+        vminst = '{:}_vminst'.format(name)
+        vmshots = '{:}_vmshots'.format(name)
+        vmpicks = '{:}_vmpicks'.format(name)
+        vmdummy = '{:}_vmdummypicks'.format(name)
+
+        sql = 'INSERT INTO model_lines (name, geom, vminst_view,'
+        sql += 'vmshots_view, vmpicks_view, vmdummypicks_view)'
+        sql += "VALUES('{:}', {:}, '{:}', '{:}', '{:}', '{:}')"\
+                .format(name, geom, vminst, vmshots, vmpicks, vmdummy)
+        self.execute(sql)
+
+        self.commit()
+
+        # VM Tomography views
+        # Receiver locations
+        sql = 'DROP VIEW IF EXISTS {:}'.format(vminst)
+        self.execute(sql)
+        sql = 'CREATE VIEW {:}'.format(vminst)
+        sql += ' AS SELECT r.rid AS rid,'
+        sql += ' Distance(r.geom, StartPoint(m.geom))/1000.'
+        sql += ' AS rx, 0.0 AS ry, -Z(r.geom)/1000. AS rz FROM receiver_pts AS r,'
+        sql += " model_lines AS m WHERE m.name='{:}'".format(name)
+        self.execute(sql)
+        # Shot locations
+        sql = 'DROP VIEW IF EXISTS {:}'.format(vmshots)
+        self.execute(sql)
+        sql = 'CREATE VIEW {:}'.format(vmshots)
+        sql += ' AS SELECT s.sid AS sid,'
+        sql += ' Distance(s.geom, StartPoint(m.geom))/1000.'
+        sql += ' AS sx, 0.0 AS sy, -Z(s.geom)/1000. AS sz FROM source_pts AS s,'
+        sql += " model_lines AS m WHERE m.name='{:}'".format(name)
+        self.execute(sql)
+        # Traveltime picks
+        sql = 'DROP VIEW IF EXISTS {:}'.format(vmpicks)
+        self.execute(sql)
+        sql = 'CREATE VIEW {:}'.format(vmpicks)
+        sql += ' AS SELECT p.rid as rid, p.sid as sid,'
+        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' Distance(r.geom, s.geom)/1000. as offset,'
+        sql += ' p.time as time, p.error as error'
+        sql += ' FROM picks as p NATURAL JOIN events as e'
+        sql += ' NATURAL JOIN receiver_pts as r NATURAL JOIN source_pts as s'
+        sql += " WHERE p.model_line='{:}'".format(name)
+        self.execute(sql)
+        # Dummy picks for synthetics
+        sql = 'DROP VIEW IF EXISTS {:}'.format(vmdummy)
+        self.execute(sql)
+        sql = 'CREATE VIEW {:}'.format(vmdummy)
+        sql += ' AS SELECT p.rid as rid, p.sid as sid,'
+        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' Distance(r.geom, s.geom)/1000. as offset,'
+        sql += ' 0.0 as time, 0.0 as error, event, trace_in_file, data_file'
+        sql += ' FROM events as e, dummy_picks as p'
+        sql += ' INNER JOIN receiver_pts as r ON p.rid=r.rid'
+        sql += ' INNER JOIN source_pts as s ON p.sid=s.sid'
+        sql += " WHERE p.model_line='{:}'".format(name)
+        self.execute(sql)
+
+    def _get_model_vmview(self, vtype, model=None):
+        """
+        Get a view name for a specific model
+        """
+        if model is None:
+            view = 'vm{:}'.format(vtype)
+        else:
+            sql = 'SELECT vm{:}_view FROM model_lines WHERE'.format(vtype)
+            sql += " name='{:}'".format(model)
+
+            view = self.execute(sql).fetchone()[0]
+        
+            assert view is not None,\
+                    "Failed to find model '{:}' in table 'model_lines'"\
+                    .format(model)
+        return view
+
+    def _get_vmtomo_input(self, step=1, model=None, dummy=False, **kwargs):
+
+        if dummy:
+            vtype = 'dummypicks'
+        else:
+            vtype = 'picks'
+        picksview = self._get_model_vmview(vtype, model=model)
+        instview = self._get_model_vmview('inst', model=model)
+        shotsview = self._get_model_vmview('shots', model=model)
+
+        # make master join
+        masterview = '_vmmaster'
+        sql = 'DROP VIEW IF EXISTS {:}'.format(masterview)
+        self.execute(sql)
+        sql = 'CREATE TEMPORARY VIEW {:}'.format(masterview)
+        sql += ' AS SELECT * FROM '
+        sql += ' {:} AS p INNER JOIN {:} AS s ON p.sid=s.sid'\
+                .format(picksview, shotsview)
+        sql += ' INNER JOIN {:} AS r ON p.rid=r.rid'.format(instview)
+        if len(kwargs) > 0:
+            sql += ' WHERE ' + format_search(kwargs)
+        self.execute(sql)
+
+        # Traveltimes
+        sql = 'SELECT rid, sid, branch, subbranch, offset, time, error'
+        sql += ' FROM {:}'.format(masterview)
+        sql += ' ORDER BY rid, sid'
+        picks = format_row_factory(self.execute(sql), none_value=0.0, step=step)
+
+        # Receiver locations
+        sql = 'SELECT DISTINCT rid, rx, ry, rz FROM {:}'\
+                .format(masterview)
+        sql += ' ORDER BY rid'
+        inst = format_row_factory(self.execute(sql), none_value=0.0, step=1)
+
+        # Source locations
+        sql = 'SELECT DISTINCT sid, sx, sy, sz FROM {:}'\
+                .format(masterview)
+        sql += ' ORDER BY sid'
+        shots = format_row_factory(self.execute(sql), none_value=0.0, step=1)
+
+        return inst, shots, picks
+
+    def write_vmtomo(self, instfile='inst.dat', pickfile='picks.dat',
+                     shotfile='shots.dat', directory='.', step=1, model=None,
+                     dummy=False, **kwargs):
+        """
+        Write pick data to VM Tomography format input files.
+
+        Parameters
+        ----------
+        instfile: str
+            Name of file to write instrument data to.
+        pickfile: str
+            Name of file to write pick data to.
+        shotfile: str
+            Name of file to write shot data to.
+        directory: str
+            Name of path to prepend to filenames.
+        step: int
+            Specifies the increment of picks to write out.
+        model: str
+            Name of a model line in the 'model_lines' table to project project
+            source and receiver locations onto.
+        dummy: bool
+            If True, writes out dummy picks for all source, receiver, event
+            tuples. Useful for calculating synthetic traveltimes.
+        **kwargs: 
+            Optional keyword=value arguments for fields in the
+            picks table. Default is to write all picks.
+        """
+        inst, shots, picks = self._get_vmtomo_input(step=step, model=model,
+                                                    dummy=dummy, **kwargs)
+
+        if directory is not None:
+            instfile = os.path.join(directory, instfile)
+            pickfile= os.path.join(directory, pickfile)
+            shotfile = os.path.join(directory, shotfile)
+
+        f = open(instfile, 'w')
+        f.write(inst)
+        f.close()
+        
+        f = open(pickfile, 'w')
+        f.write(picks)
+        f.close()
+        
+        f = open(shotfile, 'w')
+        f.write(shots)
+        f.close()
+
+    def write_odt_picks(self, odt_file, data_file, event, odt_line=None,
+                        vred=None):
+
+        f = open(odt_file, 'w')
+        f.write('#line     x     y     trace     time\n')
+
+        if odt_line is None:
+            odt_line == data_file
+
+        if vred is None:
+            time_sql = 'time*1000.'
+        else:
+            time_sql = 'time*1000. - Distance(r.geom, s.geom)/{:}'.format(vred)
+        
+        sql = 'SELECT X(s.geom), Y(s.geom), trace_in_file, {:} FROM'\
+                .format(time_sql)
+        sql += ' rays AS p INNER JOIN receiver_pts AS r ON p.rid=r.rid'
+        sql += ' INNER JOIN source_pts AS s ON p.sid=s.sid'
+        sql += ' INNER JOIN dummy_picks AS g ON (p.rid=g.rid AND p.sid=g.sid)'
+        sql += " WHERE event='{:}'".format(event)
+        sql += ' ORDER BY trace_in_file'
+
+        for row in self.execute(sql):
+            f.write('{:} {:} {:} {:} {:}\n'.format(odt_line, *row))
+
+        f.close()
