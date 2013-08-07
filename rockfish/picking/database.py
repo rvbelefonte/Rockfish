@@ -31,7 +31,7 @@ EVENT_FIELDS = [
           #(name, sql_type, default_value, is_not_null, is_primary)
           ('event', 'TEXT', None, True, True),
           ('branch', 'INTEGER', None, False, False),
-          ('vm_subid', 'INTEGER', None, 0, False),
+          ('subbranch', 'INTEGER', None, 0, False),
           ('plot_symbol', 'TEXT', '"."', True, False),
           ('plot_color', 'TEXT', '"r"', True, False)]
 
@@ -60,7 +60,7 @@ VMTOMO_PICK_VIEW = 'main.vmtomo_picks'
 VMTOMO_PICK_FIELDS = ['ensemble',   # instrument number
                       'trace',      # shot number
                       'branch',  # branch
-                      'vm_subid',   # sub ID
+                      'subbranch',   # sub ID
                       'offset',     # range
                       'time',       # time
                       'error']      # pick_error
@@ -416,7 +416,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
 
         :param **kwargs: keyword=value arguments used to select picks to output
         """
-        sql = 'SELECT ensemble, trace, branch, vm_subid, offset, time'
+        sql = 'SELECT ensemble, trace, branch, subbranch, offset, time'
         sql += ', error FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
@@ -511,7 +511,7 @@ def segy2db(segy, pickdb, events, branches=None, subbranch=None,
     :param events: ``list`` of event names to add to the database for each 
         trace.
     :param branches: ``dict`` of branch values for each event
-    :param branches: ``dict`` of vm_subid values for each event
+    :param branches: ``dict`` of subbranch values for each event
     :param constant_values: ``dict`` of field and values to assign to all
         new picks.
     :returns: :class:`rockfish.picking.database.PickDatabaseConnection`
