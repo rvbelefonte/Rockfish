@@ -30,7 +30,7 @@ EVENT_TABLE = 'events'
 EVENT_FIELDS = [
           #(name, sql_type, default_value, is_not_null, is_primary)
           ('event', 'TEXT', None, True, True),
-          ('vm_branch', 'INTEGER', None, False, False),
+          ('branch', 'INTEGER', None, False, False),
           ('vm_subid', 'INTEGER', None, 0, False),
           ('plot_symbol', 'TEXT', '"."', True, False),
           ('plot_color', 'TEXT', '"r"', True, False)]
@@ -59,7 +59,7 @@ MASTER_VIEW = 'main.all_picks'
 VMTOMO_PICK_VIEW = 'main.vmtomo_picks'
 VMTOMO_PICK_FIELDS = ['ensemble',   # instrument number
                       'trace',      # shot number
-                      'vm_branch',  # branch
+                      'branch',  # branch
                       'vm_subid',   # sub ID
                       'offset',     # range
                       'time',       # time
@@ -416,7 +416,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
 
         :param **kwargs: keyword=value arguments used to select picks to output
         """
-        sql = 'SELECT ensemble, trace, vm_branch, vm_subid, offset, time'
+        sql = 'SELECT ensemble, trace, branch, vm_subid, offset, time'
         sql += ', error FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
@@ -469,10 +469,10 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         """
         Returns a dictionary of VM branch ids with corresponding event names.
         """
-        sql = 'SELECT event, vm_branch FROM {:}'.format(EVENT_TABLE)
+        sql = 'SELECT event, branch FROM {:}'.format(EVENT_TABLE)
         event_names = {}
         for row in self.execute(sql):
-            event_names[row['vm_branch']] = row['event']
+            event_names[row['branch']] = row['event']
         return event_names
 
     vmbranch2event = property(_get_branch2event)
@@ -498,7 +498,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         return pickdb
 
 
-def segy2db(segy, pickdb, events, vm_branches=None, vm_subids=None,
+def segy2db(segy, pickdb, events, branches=None, subbranch=None,
             constant_values=None):
     """
     Create a pick database with picks for each trace in a SEG-Y file.
@@ -510,8 +510,8 @@ def segy2db(segy, pickdb, events, vm_branches=None, vm_subids=None,
             filename of a database to add picks to.
     :param events: ``list`` of event names to add to the database for each 
         trace.
-    :param vm_branches: ``dict`` of vm_branch values for each event
-    :param vm_branches: ``dict`` of vm_subid values for each event
+    :param branches: ``dict`` of branch values for each event
+    :param branches: ``dict`` of vm_subid values for each event
     :param constant_values: ``dict`` of field and values to assign to all
         new picks.
     :returns: :class:`rockfish.picking.database.PickDatabaseConnection`
@@ -542,14 +542,14 @@ def segy2db(segy, pickdb, events, vm_branches=None, vm_subids=None,
                 d[k] = constant_values[k]
         for event in events:
             d['event'] = event
-            if vm_branches is not None:
-                d['vm_branch'] = vm_branches[event]
+            if branches is not None:
+                d['branch'] = branches[event]
             else:
-                d['vm_branch'] = 0
-            if vm_subids is not None:
-                d['vm_subids'] = vm_subids[event]
+                d['branch'] = 0
+            if subbranch is not None:
+                d['subbranch'] = subbranch[event]
             else:
-                d['vm_subids'] = 0 
+                d['subbranch'] = 0 
             pickdb.update_pick(**d)
     pickdb.commit()
     return pickdb

@@ -228,8 +228,8 @@ class SEGYFile(object):
         # which is not supported so far.
         if bfh.number_of_3200_byte_ext_file_header_records_following != 0:
             msg = 'Extended textual headers are supported yet. ' + \
-                   'Please contact the developers.'
-            raise NotImplementedError(msg)
+                   'Attempting to read file by ignoring extended header.'
+            warnings.warn(msg)
 
     def write(self, file, data_encoding=None, endian=None):
         """

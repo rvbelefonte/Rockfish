@@ -65,6 +65,7 @@ from pyspatialite.dbapi2 import Connection as SQLiteConnection
 from pyspatialite.dbapi2 import IntegrityError
 from rockfish.utils.user_input import query_yes_no
 from rockfish.database.utils import format_search, format_row_factory
+from rockfish.segy.segy import readSEGY 
 
 DEFAULT_EPSG = 4326
 
@@ -90,22 +91,17 @@ def pad(value):
         return value
     elif type(value) in [unicode, str]:
         return "'{:}'".format(value)
+    elif value == None:
+        return "NULL"
     else:
         return '{:}'.format(value)
 
-
-class IntegrityError(IntegrityError):
-    """
-    Raised when database lacks required tables or data.
-    """
-    pass
 
 class DatabaseConnection(SQLiteConnection):
     """
     Base class for interacting with databases
     """
-    def __init__(self, *args, **kwargs): 
-        database = kwargs.pop('database', ':memory:')
+    def __init__(self, database, *args, **kwargs): 
         if database == ':memory:':
             logging.warn('Creating new database in memory.')
         elif os.path.isfile(database):
@@ -298,11 +294,11 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
     """
     Class for managing a database of traveltimes.
     """
-    def __init__(self, *args, **kwargs): 
+    def __init__(self, database, *args, **kwargs): 
 
         self.EPSG = kwargs.pop('epsg', DEFAULT_EPSG)
         rebuild = kwargs.pop('rebuild', False)
-        DatabaseConnection.__init__(self, *args, **kwargs)
+        DatabaseConnection.__init__(self, database, *args, **kwargs)
 
         self.setup(rebuild=rebuild)
         self.verify()
@@ -329,7 +325,6 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         self._create_vmshots_view(rebuild=rebuild)
         self._create_vmpicks_view(rebuild=rebuild)
         self._create_vmdummypicks_view(rebuild=rebuild)
-        self._create_epsg_definitions(rebuild=rebuild)
 
     def _create_epsg_definitions(self, rebuild=False, view='epsg'):
 
@@ -406,8 +401,8 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         sql = 'CREATE TABLE {:} ('.format(table)
         sql += """
 	            event TEXT NOT NULL,
-                vmtomo_branch INTEGER,
-          	    vmtomo_subbranch INTEGER,
+                branch INTEGER,
+          	    subbranch INTEGER,
 	            PRIMARY KEY (event));
                """
         self.execute(sql)
@@ -571,11 +566,13 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
 
         sql = 'CREATE VIEW {:}'.format(view)
         sql += ' AS SELECT p.rid as rid, p.sid as sid,'
-        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' e.branch as branch, e.subbranch as subbranch,'
         sql += ' Distance(r.geom, s.geom)/1000. as offset,'
         sql += ' p.time as time, p.error as error'
-        sql += ' FROM picks as p NATURAL JOIN events as e'
-        sql += ' NATURAL JOIN receiver_pts as r NATURAL JOIN source_pts as s'
+        sql += ' FROM events as e, picks as p'
+        sql += ' INNER JOIN receiver_pts as r ON p.rid=r.rid'
+        sql += ' INNER JOIN source_pts as s ON p.sid=s.sid'
+        sql += ' ORDER BY data_file, trace_in_file, branch, subbranch'
         self.execute(sql)
         self.commit()
 
@@ -589,7 +586,7 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
 
         sql = 'CREATE VIEW {:}'.format(view)
         sql += ' AS SELECT p.rid as rid, p.sid as sid,'
-        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' e.branch as branch, e.subbranch as subbranch,'
         sql += ' Distance(r.geom, s.geom)/1000. as offset,'
         sql += ' 0.0 as time, 0.0 as error, event, trace_in_file, data_file'
         sql += ' FROM events as e, dummy_picks as p'
@@ -599,11 +596,13 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         self.execute(sql)
         self.commit()
 
+
+
     def verify(self):
         """
         Check that database has all of the required tables and data
         """
-        self._verify_epsg()
+        #XXXself._verify_epsg()
         for table in ['events', 'picks', 'rays', 'receiver_pts',
                       'source_pts']:
             if table not in self.TABLES:
@@ -667,6 +666,21 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
                     
         return data
 
+    def _check_count(self, table, min_count=1, **kwargs):
+        """
+        Verify that a table has a minimum number of rows
+        """
+        n = self._count(table, **kwargs)
+
+        if n < min_count:
+            msg = "Less than {:} rows".format(n)
+            if len(kwargs) > 0:
+                msg += ' matching {:}'.format(kwargs)
+            
+            msg += " in table '{:}'".format(table)
+
+            raise IntegrityError(msg)
+
     def insert_pick(self, **kwargs):
         """
         Inserts a new traveltime
@@ -696,12 +710,16 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         """
         raise NotImplementedError
 
-    def insert_geom_from_SEGY(self, segy, epsg=DEFAULT_EPSG, model_line=None):
+    def insert_geom_from_SEGY(self, segy, model_line=None,
+                              rid_field='ensemble_number',
+                              sid_field='trace_number_within_the_ensemble',
+                              **kwargs):
         """
         Inserts source and receiver geometry from a SEGYFile
         """
+        epsg = kwargs.pop('epsg', self.EPSG)
         for i, tr in enumerate(segy.traces):
-            rid = tr.header.ensemble_number
+            rid = tr.header.__getattribute__(rid_field)
             rx = tr.header.scaled_group_coordinate_x
             ry = tr.header.scaled_group_coordinate_y
             rz = tr.header.scaled_receiver_group_elevation 
@@ -712,7 +730,7 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
                 sql += ' VALUES({:}, {:})'.format(rid, geom)
                 self.execute(sql)
 
-            sid = tr.header.trace_number_within_the_ensemble
+            sid = tr.header.__getattribute__(sid_field)
             sx = tr.header.scaled_source_coordinate_x
             sy = tr.header.scaled_source_coordinate_y
             sz = -tr.header.scaled_source_depth_below_surface
@@ -737,6 +755,81 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
 
         self.commit()
 
+    def insert_odt_picks(self, event, odtfile, line2segyfile, model_line=None,
+                         vred=None, error=0.0,
+                         rid_field='ensemble_number',
+                         sid_field='trace_number_within_the_ensemble',
+                         verify=False, load_segy_geom=True, **kwargs):
+        """
+        Insert picks from OpendTect
+        """
+        epsg = kwargs.pop('epsg', self.EPSG)
+        segyfile0 = None
+        f = open(odtfile, 'rb')
+        for line in f:
+
+            d = line.split()
+            
+            odt_line = d[0]
+            sx = float(d[1])
+            dy = float(d[2])
+            trace_in_file = int(d[3])
+            time_reduced = float(d[4])
+
+            segyfile = line2segyfile(odt_line)
+            data_file = os.path.basename(segyfile)
+
+            if segyfile != segyfile0:
+                segy = readSEGY(segyfile, unpack_headers=True)
+                sql = 'DELETE FROM PICKS WHERE'
+                sql += " data_file = '{:}' AND event='{:}'"\
+                        .format(data_file, event)
+                self.execute(sql)
+                
+                if load_segy_geom and\
+                   (self._count('dummy_picks',
+                               data_file=os.path.basename(segyfile)) == 0):
+                    print 'Loading geometry from: {:}'.format(segyfile)
+                    self.insert_geom_from_SEGY(segy, epsg=epsg,
+                        model_line=model_line, rid_field=rid_field,
+                        sid_field=sid_field)
+            segyfile0 = segyfile
+
+            try:
+                tr = segy.traces[trace_in_file - 1]
+            except IndexError:
+                raise IndexError('Trace number {:} out of range for file {:}.'\
+                                 .format(trace_in_file, segyfile))
+                
+
+            offset = abs(tr.header.computed_source_receiver_offset_in_m)
+            rid = tr.header.__getattribute__(rid_field)
+            sid = tr.header.__getattribute__(sid_field)
+
+            if vred is not None:
+                time = time_reduced + offset / 1000. / vred
+            else:
+                time = time_reduced
+
+            if verify:
+                self._check_count('receiver_pts', rid=rid)
+                self._check_count('source_pts', sid=sid)
+
+            dat = [pad(event), sid, rid, time, error, pad(model_line),
+                   trace_in_file, pad(data_file)]
+
+            sql = 'INSERT INTO picks(event, sid, rid, time, error,'
+            sql += ' model_line, trace_in_file, data_file)'
+            sql += ' VALUES(' + ', '.join([str(v) for v in dat]) + ')'
+
+
+           
+            print sql
+            self.execute(sql)
+
+        self.commit()
+
+
     def insert_rayfan(self, rays, model_line=None, vm_model=None):
 
         if vm_model is not None:
@@ -754,7 +847,7 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
                 subbranch = rfn.event_subids[i]
 
                 sql = 'SELECT event FROM events WHERE'
-                sql += ' vmtomo_branch={:} AND vmtomo_subbranch={:}'\
+                sql += ' branch={:} AND subbranch={:}'\
                         .format(branch, subbranch)
                 event = self.execute(sql).fetchone()[0]
 
@@ -796,7 +889,8 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         sql = 'CREATE VIEW {:}'.format(vminst)
         sql += ' AS SELECT r.rid AS rid,'
         sql += ' Distance(r.geom, StartPoint(m.geom))/1000.'
-        sql += ' AS rx, 0.0 AS ry, -Z(r.geom)/1000. AS rz FROM receiver_pts AS r,'
+        sql += ' AS rx, 0.0 AS ry, -Z(r.geom)/1000. AS rz'
+        sql += ' FROM receiver_pts AS r,'
         sql += " model_lines AS m WHERE m.name='{:}'".format(name)
         self.execute(sql)
         # Shot locations
@@ -813,11 +907,12 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         self.execute(sql)
         sql = 'CREATE VIEW {:}'.format(vmpicks)
         sql += ' AS SELECT p.rid as rid, p.sid as sid,'
-        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' e.branch as branch, e.subbranch as subbranch,'
         sql += ' Distance(r.geom, s.geom)/1000. as offset,'
         sql += ' p.time as time, p.error as error'
-        sql += ' FROM picks as p NATURAL JOIN events as e'
-        sql += ' NATURAL JOIN receiver_pts as r NATURAL JOIN source_pts as s'
+        sql += ' FROM events as e, picks as p'
+        sql += ' INNER JOIN receiver_pts as r ON p.rid=r.rid'
+        sql += ' INNER JOIN source_pts as s ON p.sid=s.sid'
         sql += " WHERE p.model_line='{:}'".format(name)
         self.execute(sql)
         # Dummy picks for synthetics
@@ -825,7 +920,7 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         self.execute(sql)
         sql = 'CREATE VIEW {:}'.format(vmdummy)
         sql += ' AS SELECT p.rid as rid, p.sid as sid,'
-        sql += ' e.vmtomo_branch as branch, e.vmtomo_subbranch as subbranch,'
+        sql += ' e.branch as branch, e.subbranch as subbranch,'
         sql += ' Distance(r.geom, s.geom)/1000. as offset,'
         sql += ' 0.0 as time, 0.0 as error, event, trace_in_file, data_file'
         sql += ' FROM events as e, dummy_picks as p'
@@ -872,13 +967,15 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         sql += ' INNER JOIN {:} AS r ON p.rid=r.rid'.format(instview)
         if len(kwargs) > 0:
             sql += ' WHERE ' + format_search(kwargs)
+        print sql
         self.execute(sql)
 
         # Traveltimes
         sql = 'SELECT rid, sid, branch, subbranch, offset, time, error'
         sql += ' FROM {:}'.format(masterview)
         sql += ' ORDER BY rid, sid'
-        picks = format_row_factory(self.execute(sql), none_value=0.0, step=step)
+        picks = format_row_factory(self.execute(sql), none_value=0.0,
+                                   step=step)
 
         # Receiver locations
         sql = 'SELECT DISTINCT rid, rx, ry, rz FROM {:}'\
@@ -962,6 +1059,7 @@ class TraveltimeDatabaseConnection(DatabaseConnection):
         sql += ' INNER JOIN source_pts AS s ON p.sid=s.sid'
         sql += ' INNER JOIN dummy_picks AS g ON (p.rid=g.rid AND p.sid=g.sid)'
         sql += " WHERE event='{:}'".format(event)
+        sql += " AND data_file='{:}'".format(data_file)
         sql += ' ORDER BY trace_in_file'
 
         for row in self.execute(sql):
