@@ -5,7 +5,9 @@ import os
 import subprocess
 import warnings
 import time
+from threading import Thread
 from rockfish.tomography import readVM
+
 
 RAYTR_PROGRAM = 'slim_rays'
 
@@ -128,7 +130,8 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
             raysize0 = os.path.getsize(rayfile)
         else:
             raysize0 = 0
-        if verbose >= 4:
+
+        if (verbose >= 4) or (stdout is not None):
             subprocess.call(sh, shell=True, stdout=stdout,
                                          stderr=stderr)
         else:
@@ -245,3 +248,69 @@ def raytrace(vmfile, pickdb, rayfile, pick_keys={}, input_dir='forward',
                 os.remove(_f)
         if new_dir:
             os.rmdir(input_dir)
+
+def _raytrace_one(vmfile, rayfile, instfile, shotfile, pickfile):
+    """
+    Wrapper for the raytracer with constant parameters.
+
+    Used to call raytrace_from_ascii from individual threads.
+    """
+    print 'Starting raytracing for {:}'.format(os.path.basename(rayfile))
+    log = open('{:}.log'.format(rayfile), 'w')
+    raytrace_from_ascii(vmfile, rayfile, instfile=instfile, 
+                        shotfile=shotfile, pickfile=pickfile,
+                        verbose=False, stdout=log, stderr=log)
+    print 'Done raytracing for {:}'.format(os.path.basename(rayfile))
+
+
+def parallel_raytrace(vmfile, pickdb, branches=None, ensembles=None, nproc=1,
+                      input_dir='forward', output_dir='rays', 
+                      ensemble_field='rid'):
+    """
+    Parallel raytracing.
+    
+    Splits picks by ensemble and branch and writes results to individual
+    rayfan files.
+    """
+    if not os.path.isdir(input_dir):
+        os.mkdir(input_dir)
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+    if branches is None:
+        sql = 'SELECT DISTINCT branch FROM events'
+        pickdb.execute(sql).fetchall()
+    if ensembles is None:
+        ensembles = pickdb.get_ensembles()
+
+    # Setup input files and package up arguments
+    mod_id = os.path.basename(vmfile).split('.vm')[0]
+    tmpid = 0
+    args = []
+    for branch in branches:
+        for ens in ensembles:
+            name = '{:}.{:}'.format(ens, branch)
+            _input_dir = os.path.join(input_dir, '{:}'.format(name))
+            if not os.path.isdir(_input_dir):
+                os.mkdir(_input_dir)
+            pick_keys = {'branch': branch, ensemble_field: ens}
+            instfile = os.path.join(_input_dir, 'inst.dat')
+            shotfile = os.path.join(_input_dir, 'shot.dat')
+            pickfile = os.path.join(_input_dir, 'picks.dat')
+            pickdb.write_vmtomo(instfile=instfile, shotfile=shotfile,
+                                pickfile=pickfile, **pick_keys)
+            rayfile = os.path.join(output_dir, name + '.ray')
+            args.append([vmfile, rayfile, instfile, shotfile, pickfile])
+
+    # Raytrace in parallel
+    ijob = -1
+    njob = len(args)
+    print 'Packaged {:} sets of job arguments.'.format(njob)
+    print 'Running {:} jobs in sets of {:}...'.format(njob, nproc)
+    while ijob < njob:
+        t = []
+        for i in range(nproc):
+            ijob += 1
+            if ijob < njob:
+                t.append(Thread(target=_raytrace_one, args=(args[ijob])))
+        [_t.start() for _t in t]
+        [_t.join() for _t in t]
