@@ -1,0 +1,40 @@
+--
+-- Event table
+--
+CREATE TABLE IF NOT EXISTS events (
+	   event TEXT NOT NULL,
+	   vmtomo_branch INTEGER,
+	   vmtomo_subbranch INTEGER)
+	   PRIMARY KEY (event))
+
+--
+-- Traveltime picks table
+--
+CREATE TABLE IF NOT EXISTS picks (
+	   event TEXT NOT NULL,
+	   ensemble INTEGER NOT NULL,
+	   trace INTEGER NOT NULL,
+	   time FLOAT NOT NULL,
+	   error FLOAT NOT NULL,
+	   trace_in_file INTEGER,
+	   data_file TEXT,
+	   PRIMARY KEY (event, ensemble, trace),
+	   FOREIGN KEY (ensemble, trace) REFERENCES traces(ensemble, trace),
+	   FOREIGN KEY (event) REFERENCE events(event))
+
+--
+-- Raypath table
+--
+CREATE TABLE IF NOT EXISTS rays (
+	   event TEXT NOT NULL,
+	   ensemble INTEGER NOT NULL,
+	   trace INTEGER NOT NULL,
+	   time FLOAT NOT NULL,
+	   path BLOB NOT NULL,
+	   line TEXT,
+	   site TEXT,
+	   trace_in_file INTEGER,
+	   data_file TEXT,
+	   PRIMARY KEY (event, ensemble, trace),
+	   FOREIGN KEY (ensemble, trace) REFERENCES traces(ensemble, trace),
+	   FOREIGN KEY (event) REFERENCE events(event))
