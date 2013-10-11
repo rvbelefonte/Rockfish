@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 from rockfish.database.database import RockfishDatabaseConnection
 
 # XXX dev!
-#logging.basicConfig(level='DEBUG')
+logging.basicConfig(level='DEBUG')
 
 # Table for the 'Header record specification'
 HEADER_TABLE = 'headers'
@@ -242,7 +242,7 @@ class P190(RockfishDatabaseConnection):
         if output_format is 'p190':
             self._write_p190(filename)
         elif output_format is 'csv':
-            self._write_csv(filename)
+            return self._write_csv(filename)
         else:
             msg = "Writing to format '{:}' is not supported"\
                     .fileformat(output_format)
@@ -261,6 +261,7 @@ class P190(RockfishDatabaseConnection):
             include the p190 header records in a commented block at the top of
             each csv file. Default is False.
         """
+        filenames = {}
         if tables is None:
             tables = [self.HEADER_TABLE, self.COORDINATE_TABLE,
                       self.RECEIVER_TABLE]
@@ -269,10 +270,14 @@ class P190(RockfishDatabaseConnection):
                     self._get_p190_header().split('\n')]
         for table in tables:
             if len(tables) > 1:
-                _filename = '{:}/{:}.{:}.csv'.format(os.path.dirname(filename),
-                    os.path.basename(filename).replace('.csv', ''), table)
+                _filename = '{:}/{:}.{:}.csv'\
+                        .format(os.path.dirname(os.path.abspath(filename)),
+                                os.path.basename(filename)\
+                                .replace('.csv', ''), table)
             else:
                 _filename = filename
+            filenames[table] = _filename
+            logging.debug('Writing data to %s', _filename)
             file = open(_filename, 'w')
             if include_p190_header:
                 file.write(header)
@@ -283,6 +288,9 @@ class P190(RockfishDatabaseConnection):
             for row in self.execute(sql):
                 file.write(', '.join([str(row[f]) for f in fields]))
                 file.write('\n')
+
+        return filenames
+
 
     def _write_p190(self, filename):
         """
