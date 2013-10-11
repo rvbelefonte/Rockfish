@@ -133,7 +133,10 @@ class P190(RockfishDatabaseConnection):
         for i, line in enumerate(file):
             logging.debug("Line %s: %s", i, line)
             logging.debug("line[0]=%s", line[0])
-            if line[0] == 'H':
+            if line.startswith('EOF'):
+                logging.debug('**Explicit end of file**')
+                continue
+            elif line[0] == 'H':
                 logging.debug('Reading header line')
                 self._read_header_line(line)
             elif line[0] in COORDINATE_IDS:

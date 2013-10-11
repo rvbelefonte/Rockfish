@@ -8,7 +8,8 @@ from rockfish.utils.loaders import get_example_file
 
 TEST_DATA_DIR = 'data'
 P190_FILES = [#(filename, nsources, nchannels),
-              ('mgl0807.p190', 2, 636)]
+              ('mgl0807.p190', 2, 636),
+              ('AnNE1.0.p190', 3, 636)]
 
 line_count = lambda filename: len(open(filename, 'r').readlines())
 
