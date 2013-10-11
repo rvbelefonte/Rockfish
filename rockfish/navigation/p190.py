@@ -64,7 +64,9 @@ RECEIVER_FIELDS = [
 
 
 def dist_on_line(x, y):
-
+    """
+    Calculates cumulative distance along a line
+    """
     xline = np.zeros(len(x))
     for i in range(1, len(x)):
         delt = np.sqrt((x[i] - x[i - 1]) ** 2\
@@ -308,34 +310,38 @@ class P190(RockfishDatabaseConnection):
         sql = 'SELECT line_name,point_number FROM ' + self.COORDINATE_TABLE
         sql += ' ORDER BY day_of_year,time'
         for row in self.execute(sql).fetchall():
-            # Write the coordinate records for this shot point
-            sql = 'SELECT record_id,line_name,spare,vessel_id,source_id,'
-            sql += 'tailbuoy_id,point_number,latitude,longitude,easting,'
-            sql += 'northing,water_depth_or_elev,day_of_year,time,spare2'
-            sql += ' FROM ' + self.COORDINATE_TABLE
-            sql += " WHERE line_name='{:}' AND point_number={:}"\
-                    .format(row['line_name'], row['point_number'])
-            for coord in self.execute(sql).fetchall():
-                sng = '{:1s}{:12s}{:3s}{:1s}{:1s}{:1s}{:6s}{:10s}{:10s}'\
-                        '{:9s}{:9s}{:6s}{:3s}{:6s}{:1s}\n'\
-                        .format(*[str(v) for v in coord])
-                file.write(sng)
-            # Write the receiver records for this shot point
-            sql = 'SELECT * FROM ' + self.RECEIVER_TABLE
-            sql += " WHERE line_name='{:}' and source_point_number={:}"\
-                    .format(coord['line_name'], coord['point_number'])
-            sql += " ORDER BY receiver_group_number"
-            for i, rec in enumerate(self.execute(sql).fetchall()):
-                if i % 3 == 0:
-                    sng = 'R'
-                dat = [int(rec['receiver_group_number']),
-                       float(rec['easting']),
-                       float(rec['northing']),
-                       float(rec['cable_depth'])]
-                sng += '{:04d}{:9.1f}{:9.1f}{:4.1f}'.format(*dat)
-                if i % 3 == 2:
-                    sng += '{:1d}\n'.format(int(rec['streamer_id']))
+            try:
+                # Write the coordinate records for this shot point
+                sql = 'SELECT record_id,line_name,spare,vessel_id,source_id,'
+                sql += 'tailbuoy_id,point_number,latitude,longitude,easting,'
+                sql += 'northing,water_depth_or_elev,day_of_year,time,spare2'
+                sql += ' FROM ' + self.COORDINATE_TABLE
+                sql += " WHERE line_name='{:}' AND point_number={:}"\
+                        .format(row['line_name'], row['point_number'])
+                for coord in self.execute(sql).fetchall():
+                    sng = '{:1s}{:12s}{:3s}{:1s}{:1s}{:1s}{:6s}{:10s}{:10s}'\
+                            '{:9s}{:9s}{:6s}{:3s}{:6s}{:1s}\n'\
+                            .format(*[str(v) for v in coord])
                     file.write(sng)
+                # Write the receiver records for this shot point
+                sql = 'SELECT * FROM ' + self.RECEIVER_TABLE
+                sql += " WHERE line_name='{:}' and source_point_number={:}"\
+                        .format(coord['line_name'], coord['point_number'])
+                sql += " ORDER BY receiver_group_number"
+                for i, rec in enumerate(self.execute(sql).fetchall()):
+                    if i % 3 == 0:
+                        sng = 'R'
+                    dat = [int(rec['receiver_group_number']),
+                           float(rec['easting']),
+                           float(rec['northing']),
+                           float(rec['cable_depth'])]
+                    sng += '{:04d}{:9.1f}{:9.1f}{:4.1f}'.format(*dat)
+                    if i % 3 == 2:
+                        sng += '{:1d}\n'.format(int(rec['streamer_id']))
+                        file.write(sng)
+            except:
+                logging.warn('Problem writing record for source point %s',
+                             row[1])
         file.write('EOF')
 
     def print_header(self):
@@ -353,14 +359,16 @@ class P190(RockfishDatabaseConnection):
         """
         source_points = kwargs.pop('source_points', self.source_points)
 
+        logging.info('Evenly distributing reveiver groups...')
         for source_point in source_points:
+            logging.debug('source point %s', source_point)
             sql = 'SELECT rowid, easting, northing'
             sql += ' FROM {:} WHERE source_point_number={:}'\
                 .format(self.RECEIVER_TABLE, source_point)
             sql += ' ORDER BY receiver_group_number'
-            dat = np.asarray([[d[0], d[1], d[2]] for d in
+            dat = np.asarray([[int(d[0]), float(d[1]), float(d[2])] for d in
                               self.execute(sql).fetchall()])
-    
+
             xline0 = dist_on_line(dat[:, 1], dat[:, 2])
             xline1 = np.linspace(xline0.min(), xline0.max(), dat.shape[0])
 
@@ -449,18 +457,30 @@ class P190(RockfishDatabaseConnection):
         ax.plot(x, y, streamer_symbol, **kwargs) 
 
         # Source
-        sql = 'SELECT easting, northing FROM {:}'.format(self.COORDINATE_TABLE)
-        sql += ' WHERE point_number={:}'.format(source_point_number)
-        sql += " AND record_id='S'"
-        dat = self.execute(sql).fetchall()
-        ax.plot(dat[0][0], dat[0][1], source_symbol, **kwargs)
+        try:
+            sql = 'SELECT easting, northing FROM {:}'\
+                    .format(self.COORDINATE_TABLE)
+            sql += ' WHERE point_number={:}'.format(source_point_number)
+            sql += " AND record_id='S'"
+            dat = self.execute(sql).fetchall()
+            ax.plot(dat[0][0], dat[0][1], source_symbol, **kwargs)
+
+        except IndexError:
+            logging.warn('Could not find source location for source point {:}'\
+                         .format(source_point_number))
 
         # Tail buoy
-        sql = 'SELECT easting, northing FROM {:}'.format(self.COORDINATE_TABLE)
-        sql += ' WHERE point_number={:}'.format(source_point_number)
-        sql += " AND record_id='T'"
-        dat = self.execute(sql).fetchall()
-        ax.plot(dat[0][0], dat[0][1], tailbuoy_symbol, **kwargs)
+        try:
+            sql = 'SELECT easting, northing FROM {:}'\
+                    .format(self.COORDINATE_TABLE)
+            sql += ' WHERE point_number={:}'.format(source_point_number)
+            sql += " AND record_id='T'"
+            dat = self.execute(sql).fetchall()
+            ax.plot(dat[0][0], dat[0][1], tailbuoy_symbol, **kwargs)
+        
+        except IndexError:
+            logging.warn('Could not find tailbuoy location for source point'\
+                         + ' {:}'.format(source_point_number))
 
         if show:
             plt.show()
