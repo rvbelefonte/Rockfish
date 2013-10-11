@@ -38,7 +38,7 @@ class RockfishDatabaseConnection(sqlite3.Connection):
         Will be decreciated soon. Use insert() instead.
         """
         msg = '_insert() will be removed in the future, use insert() instead.'
-        warnings.PendingDeprecationWarning(msg)
+        PendingDeprecationWarning(msg)
         return self.insert(self, table, **kwargs)
 
     def insert(self, table, **kwargs):

@@ -4,7 +4,13 @@ Support for working with UKOOA P1/90 files.
 import os
 import logging
 import warnings
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.interpolate import interp1d
 from rockfish.database.database import RockfishDatabaseConnection
+
+# XXX dev!
+#logging.basicConfig(level='DEBUG')
 
 # Table for the 'Header record specification'
 HEADER_TABLE = 'headers'
@@ -55,6 +61,18 @@ RECEIVER_FIELDS = [
     ('northing', 'REAL', None, True, False),
     ('cable_depth', 'REAL', None, True, False),
     ('streamer_id', 'INTEGER', None, True, False)]
+
+
+def dist_on_line(x, y):
+
+    xline = np.zeros(len(x))
+    for i in range(1, len(x)):
+        delt = np.sqrt((x[i] - x[i - 1]) ** 2\
+                       + (y[i] - y[i - 1]) ** 2)
+
+        xline[i] = xline[i - 1] + delt
+
+    return xline
 
 
 class P190EllipseError(Exception):
@@ -113,19 +131,26 @@ class P190(RockfishDatabaseConnection):
             beginning of a p190 file.
         """
         for i, line in enumerate(file):
-            try:
-                if line[0] == 'H':
-                    self._read_header_line(line)
-                elif line[0] in COORDINATE_IDS:
-                    line_name, source_point_number = \
-                        self._read_coordinate_line(line)
-                elif line[0] == 'R':
-                    self._read_receiver_line(line, line_name,
-                                             source_point_number)
-            except:
-                msg = "Skipping invalid record on line {:d} of {:}."\
-                        .format(i, file.name)
-                warnings.warn(msg)
+            logging.debug("Line %s: %s", i, line)
+            logging.debug("line[0]=%s", line[0])
+            if line[0] == 'H':
+                logging.debug('Reading header line')
+                self._read_header_line(line)
+            elif line[0] in COORDINATE_IDS:
+                line_name = None
+                source_point_number = None
+                logging.debug('Reading coordinate line')
+                line_name, source_point_number = \
+                    self._read_coordinate_line(line)
+                logging.debug('line_name=%s, source_point_number=%s',
+                              line_name, source_point_number)
+            elif line[0] == 'R':
+                assert line_name is not None, 'Problem reading line name'
+                assert source_point_number is not None,\
+                        'Problem reading source_point_number'
+                logging.debug('Reading reveiver line')
+                self._read_receiver_line(line, line_name,
+                                         source_point_number)
         self.commit()
 
     def _read_header_line(self, line):
@@ -140,7 +165,8 @@ class P190(RockfishDatabaseConnection):
              'type_modifier': line[3:5],
              'description': line[5:32].strip(),
              'value': line[32:80].strip()}
-        self._insert(self.HEADER_TABLE, **d)
+        logging.debug('Header fields: %s', d)
+        self.insert(self.HEADER_TABLE, **d)
 
     def _read_coordinate_line(self, line):
         """
@@ -177,7 +203,9 @@ class P190(RockfishDatabaseConnection):
                       'H0800', but 'H0800' has not been defined.
                       """.strip()
                 warnings.warn(msg)
-        self._insert(self.COORDINATE_TABLE, **d)
+
+        logging.debug('Inserting data into %s: %s', self.COORDINATE_TABLE, d)
+        self.insert(self.COORDINATE_TABLE, **d)
         return d['line_name'], d['point_number']
 
     def _read_receiver_line(self, line, line_name, source_point_number):
@@ -199,7 +227,9 @@ class P190(RockfishDatabaseConnection):
                  'northing': _line[13:22],
                  'cable_depth': _line[22:26],
                  'streamer_id': line[79]}
-            self._insert(self.RECEIVER_TABLE, **d)
+            logging.debug('Inserting data into %s: %s',
+                          self.RECEIVER_TABLE, d)
+            self.insert(self.RECEIVER_TABLE, **d)
 
     def write(self, filename, output_format='p190', table=':all:'):
         """
@@ -302,6 +332,42 @@ class P190(RockfishDatabaseConnection):
         """
         print self._get_p190_header()
 
+    def distribute_receiver_groups(self, **kwargs): 
+        """
+        Evenly distribute receiver groups along the streamer
+        
+        Useful if the overall geometry of the streamer is OK, but indiviudal
+        group locations are not.
+        """
+        source_points = kwargs.pop('source_points', self.source_points)
+
+        for source_point in source_points:
+            sql = 'SELECT rowid, easting, northing'
+            sql += ' FROM {:} WHERE source_point_number={:}'\
+                .format(self.RECEIVER_TABLE, source_point)
+            sql += ' ORDER BY receiver_group_number'
+            dat = np.asarray([[d[0], d[1], d[2]] for d in
+                              self.execute(sql).fetchall()])
+    
+            xline0 = dist_on_line(dat[:, 1], dat[:, 2])
+            xline1 = np.linspace(xline0.min(), xline0.max(), dat.shape[0])
+
+            xline2easting = interp1d(xline0, dat[:, 1])
+            xline2northing = interp1d(xline0, dat[:, 2])
+
+            easting = xline2easting(xline1)
+            northing = xline2northing(xline1)
+
+            for rowid, x, y in zip(dat[:, 0], easting, northing):
+
+                sql = 'UPDATE {:} SET easting={:}, northing={:}'\
+                     .format(self.RECEIVER_TABLE, x, y)
+                sql += ' WHERE rowid={:}'.format(rowid) 
+
+                self.execute(sql)
+            self.commit()
+
+
     def _get_p190_header(self):
         """
         Get header data in the P1/90 format.
@@ -344,3 +410,67 @@ class P190(RockfishDatabaseConnection):
         else:
             self.ELLIPSE = ellps
         logging.debug("set ELLIPSE='%s'", self.ELLIPSE)
+
+    def plot_single_source_point(self, source_point_number, ax=None,
+                                 streamer_symbol='.-b', source_symbol='*b',
+                                 tailbuoy_symbol='^b', **kwargs):
+        """
+        Plot the streamer for a single shot location
+        """
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            show = True
+        
+            plt.xlabel('Easting')
+            plt.ylabel('Northing')
+            plt.title('Source Point {:}'.format(source_point_number))
+        else:
+            show = False
+
+        # Streamer
+        sql = 'SELECT easting, northing FROM {:}'.format(self.RECEIVER_TABLE)
+        sql += ' WHERE source_point_number={:}'.format(source_point_number)
+        dat = self.execute(sql).fetchall()
+        x = [d[0] for d in dat]
+        y = [d[1] for d in dat]
+        ax.plot(x, y, streamer_symbol, **kwargs) 
+
+        # Source
+        sql = 'SELECT easting, northing FROM {:}'.format(self.COORDINATE_TABLE)
+        sql += ' WHERE point_number={:}'.format(source_point_number)
+        sql += " AND record_id='S'"
+        dat = self.execute(sql).fetchall()
+        ax.plot(dat[0][0], dat[0][1], source_symbol, **kwargs)
+
+        # Tail buoy
+        sql = 'SELECT easting, northing FROM {:}'.format(self.COORDINATE_TABLE)
+        sql += ' WHERE point_number={:}'.format(source_point_number)
+        sql += " AND record_id='T'"
+        dat = self.execute(sql).fetchall()
+        ax.plot(dat[0][0], dat[0][1], tailbuoy_symbol, **kwargs)
+
+        if show:
+            plt.show()
+
+
+    # Properties
+    def _get_source_points(self):
+        """
+        Returns list of unique source points
+        """
+        sql = 'SELECT DISTINCT source_point_number FROM {:}'\
+                .format(self.RECEIVER_TABLE)
+        return [int(d[0]) for d in self.execute(sql).fetchall()]
+
+    source_points = property(fget=_get_source_points)
+
+    def _get_receiver_groups(self):
+        """
+        Returns list of unique receiver group numbers
+        """
+        sql = 'SELECT DISTINCT receiver_group_number FROM {:}'\
+                .format(self.RECEIVER_TABLE)
+        return [int(d[0]) for d in self.execute(sql).fetchall()]
+
+    receiver_groups = property(fget=_get_receiver_groups)
