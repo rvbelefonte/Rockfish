@@ -336,6 +336,7 @@ class P190(RockfishDatabaseConnection):
                 if i % 3 == 2:
                     sng += '{:1d}\n'.format(int(rec['streamer_id']))
                     file.write(sng)
+        file.write('EOF')
 
     def print_header(self):
         """
