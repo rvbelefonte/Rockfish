@@ -41,13 +41,13 @@ class P190TestCase(unittest.TestCase):
         """
         dbfile = 'test_p190.sqlite'
         for fname, nsrc, nchan in P190_FILES: 
+            # read p190 file
             _fname = get_example_file(fname)
             p1 = P190(_fname)
 
-            fnames = p1.write('test_csv', output_format='csv')
-
             # should write three files
-            tables = ['headers', 'receiver_groups', 'coordinates']
+            fnames = p1.write('test_csv', output_format='csv')
+            tables = [p1.HEADER_TABLE, p1.COORDINATE_TABLE, p1.RECEIVER_TABLE] 
             for _table in tables:
                 self.assertTrue(os.path.isfile(fnames[_table]))
     
@@ -58,6 +58,34 @@ class P190TestCase(unittest.TestCase):
             # cleanup
             for _table in tables:
                 os.remove(fnames[_table])
+
+    def test__write_p190(self):
+        """
+        Should be able to write data to the P190 format
+        """
+        dbfile = 'test_p190.sqlite'
+        for fname, nsrc, nchan in P190_FILES: 
+            # read p190 file
+            _fname = get_example_file(fname)
+            p1 = P190(_fname)
+
+            # should write one p190 file
+            ofile = 'test.p190'
+            p1.write(ofile, output_format='p190')
+            self.assertTrue(os.path.isfile(ofile))
+
+            # read new p190
+            p1_new = P190(ofile)
+
+            # should have the same data
+            self.assertEqual(len(p1.receiver_groups),
+                             len(p1_new.receiver_groups))
+            self.assertEqual(len(p1.source_points),
+                             len(p1_new.source_points))
+
+            
+            # cleanup
+            os.remove(ofile)
 
 
 def suite():

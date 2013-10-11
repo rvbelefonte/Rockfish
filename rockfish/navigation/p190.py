@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 from rockfish.database.database import RockfishDatabaseConnection
 
 # XXX dev!
-logging.basicConfig(level='DEBUG')
+#logging.basicConfig(level='DEBUG')
 
 # Table for the 'Header record specification'
 HEADER_TABLE = 'headers'
