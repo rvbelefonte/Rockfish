@@ -28,6 +28,8 @@ from rockfish.signals.smoothing import smooth1d, smooth2d
 
 ENDIAN = pack.BYTEORDER
 
+x2i = lambda x, x0, dx, nx: np.clip([int(round((_x - x0) / dx))\
+                                    for _x in np.atleast_1d(x)], 0, nx - 1)
 
 class VM(object):
     """
@@ -802,7 +804,7 @@ class VM(object):
         :param x: list of x coordinates in the model
         :returns: list of nearest x index for the given coordinates
         """
-        return [int((_x - self.r1[0]) / self.dx) for _x in x]
+        return x2i(x, self.r1[0], self.dx, self.nx) 
 
     def i2x(self, ix):
         """
@@ -812,6 +814,15 @@ class VM(object):
         :returns: list of x coordinates
         """
         return [self.r1[0] + _ix * self.dx for _ix in ix]
+
+    def x2x(self, x):
+        """
+        Find x-coordinate of nearest node
+        
+        :param x: x coordinate
+        :returns: x-coordinate of nearest node 
+        """
+        return self.x[self.x2i(np.atleast_1d(x))]
 
     def xrange2i(self, xmin=None, xmax=None):
         """
@@ -840,7 +851,7 @@ class VM(object):
         :param y: list of y coordinates in the model
         :returns: list of nearest y index for the given coordinates
         """
-        return [int((_y - self.r1[1]) / self.dy) for _y in y]
+        return x2i(y, self.r1[1], self.dy, self.ny) 
 
     def i2y(self, iy):
         """
@@ -850,6 +861,15 @@ class VM(object):
         :returns: list of y coordinates
         """
         return [self.r1[1] + _iy * self.dy for _iy in iy]
+
+    def y2y(self, y):
+        """
+        Find y-coordinate of nearest node
+        
+        :param y: y coordinate
+        :returns: y-coordinate of nearest node 
+        """
+        return self.y[self.y2i(np.atleast_1d(y))]
 
     def yrange2i(self, ymin=None, ymax=None):
         """
@@ -878,7 +898,7 @@ class VM(object):
         :param y: list of y coordinates in the model
         :returns: list of nearest y index for the given coordinates
         """
-        return [int((_z - self.r1[2]) / self.dz) for _z in z]
+        return x2i(z, self.r1[2], self.dz, self.nz) 
 
     def i2z(self, iz):
         """
@@ -888,6 +908,15 @@ class VM(object):
         :returns: list of z coordinates
         """
         return [self.r1[2] + _iz * self.dz for _iz in iz]
+
+    def z2z(self, z):
+        """
+        Find z-coordinate of nearest node
+        
+        :param z: z coordinate
+        :returns: z-coordinate of nearest node 
+        """
+        return self.z[self.z2i(np.atleast_1d(z))]
 
     def zrange2i(self, zmin=None, zmax=None):
         """
@@ -924,6 +953,22 @@ class VM(object):
             Indices for the point x, y, z
         """
         return self.x2i([x])[0], self.y2i([y])[0], self.z2i([z])[0]
+
+    def xyz2xyz(self, x, y, z):
+        """
+        Find the nearest grid node to an x, y, z point
+        
+        Parameters
+        ----------
+        x, y, z: float
+            x, y, z coordinates
+
+        Returns
+        -------
+        x, y, z: float
+            Coordinates of the nearest grid node
+        """
+        return self.x2x(x), self.y2y(y), self.z2z(z)
 
     def gridpoint2position(self, ix, iy, iz):
         """
@@ -1097,8 +1142,8 @@ class VM(object):
         return iref
 
     def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
-             ij=True, apply_jumps=True, colorbar=False, vmin=None,
-             vmax=None, outfile=None):
+             ij=True, show_grid=False, apply_jumps=True, colorbar=False,
+             vmin=None, vmax=None, outfile=None, xlim=None, ylim=None):
         """
         Plot the velocity grid and reflectors.
 
@@ -1142,8 +1187,8 @@ class VM(object):
             vm.apply_jumps()
         # Plot the slice
         vm._plot2d(velocity=velocity, ax=ax, rf=rf, ir=ir, ij=ij,
-                   vmin=vmin, vmax=vmax,
-                   colorbar=colorbar, outfile=outfile)
+                   show_grid=show_grid, vmin=vmin, vmax=vmax,
+                   colorbar=colorbar, outfile=outfile, xlim=xlim, ylim=ylim)
         # remove the jumps
         if apply_jumps:
             vm.remove_jumps()
@@ -1251,7 +1296,8 @@ class VM(object):
                    outfile=outfile)
 
     def _plot2d(self, velocity=True, ax=None, rf=True, ir=True, ij=True,
-                grid=None, colorbar=True, vmin=None, vmax=None, outfile=None,
+                grid=None, show_grid=False,
+                colorbar=True, vmin=None, vmax=None, outfile=None,
                 aspect=None, ylim=None, xlim=None):
         """
         Plot a 2D model.
@@ -1273,6 +1319,8 @@ class VM(object):
         grid : array_like
             Grid to plot as base plot. Default is to plot slowness or
             velocity from ``self.sl``.
+        show_grid : bool
+            If true, plot the grid mesh.
         colorbar : bool
             Show a colorbar.
         vmin, vmax : {None, scalar}
@@ -1301,9 +1349,20 @@ class VM(object):
             show = True
         else:
             show = False
+        
         img = ax.imshow(grid.transpose(), vmin=vmin, vmax=vmax,
             extent=(self.r1[0], self.r2[0], self.r2[2], self.r1[2]),
             aspect=aspect)
+
+        if show_grid:
+            
+            for x in self.x:
+                ax.plot([x, x], [self.r1[2], self.r2[2]], '-k')
+
+            for z in self.z:
+                ax.plot([self.r1[0], self.r2[0]], [z, z], '-k')
+                
+
         for iref in range(0, self.nr):
             if rf:
                 ax.plot(self.x, self.rf[iref], '-k')

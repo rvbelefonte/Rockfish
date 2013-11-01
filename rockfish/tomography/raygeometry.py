@@ -43,10 +43,7 @@ def assign_points_to_layers(vm, px, py, pz):
     pi : numpy.ndarray
         Layer index for each point.
     """
-    pi = []
-    for pt in zip(px, py, pz):
-        pi.append(vm.point2layer(*pt))
-    return pi
+    return np.asarray([vm.point2layer(*pt) for pt in zip(px, py, pz)])
 
 
 def get_indices_near_piercing(pi, iref, downward=True, upward=True):
