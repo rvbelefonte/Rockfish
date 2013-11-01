@@ -40,7 +40,7 @@ def py2str(values):
     return strings
 
 
-def format_search(match_dict, list_op='OR', key_op='AND'):
+def format_search(match_dict, list_op='OR', key_op='AND', op='='):
     """
     Format a dictionary of search terms into a SQLite search string.
 
@@ -61,9 +61,10 @@ def format_search(match_dict, list_op='OR', key_op='AND'):
     _list_op = ' ' + list_op + ' '
     for k in match_dict:
         try:
-            values = ['{:}={:}'.format(k, v) for v in py2str(match_dict[k])]
+            values = ['{:}{:}{:}'.format(k, op, v)\
+                      for v in py2str(match_dict[k])]
         except TypeError:
-            values = ['{:}={:}'.format(k, py2str([match_dict[k]])[0])]
+            values = ['{:}{:}{:}'.format(k, op, py2str([match_dict[k]])[0])]
         fields.append('(' + _list_op.join(values) + ')')
     _key_op = ' ' + key_op + ' '
     sql = _key_op.join(fields)
