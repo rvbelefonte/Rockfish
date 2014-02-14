@@ -4,7 +4,8 @@ Test cases for the vm module.
 import os
 import unittest
 import numpy as np
-from rockfish.tomography.model import VM, readVM
+import copy
+from rockfish.tomography.model import VM, VMGrids, readVM
 from rockfish.utils.loaders import get_example_file
 
 
@@ -300,9 +301,45 @@ class VMTestCase(unittest.TestCase):
         for j in range(3):
             self.assertEqual(i0[j], i1[j])
 
+    def dev_grids(self):
+        """
+        Should use a separate class to manage grids 
+        """
+        vm = readVM(get_example_file('1d.vm'))
+
+        # should have the grid class 
+        self.assertTrue(hasattr(vm, 'grids'))
+        self.assertTrue(isinstance(vm.grids, VMGrids))
+
+        # should still have the 'sl' alias for the slowness grid
+        self.assertTrue(hasattr(vm, 'sl'))
+        sl0 = copy.copy(vm.sl) # save original slowness grid
+
+        # modifying vm.sl should update vm.grids.slowness
+        self.assertTrue(vm.sl is vm.grids.slowness)
+
+        vm.sl = 999.99
+        self.assertTrue(vm.grids.slowness == 999.99)
+
+        # and visa versa
+        vm.grids.slowness = 888.88
+        self.assertTrue(vm.sl == 888.88)
+
+        # grids should also have velocity and twt
+        self.assertTrue(hasattr(vm.grids, 'velocity'))
+        self.assertTrue(hasattr(vm.grids, 'twt'))
+
+        # these grids should be the same shape as sl
+        for n0, n1 in zip(vm.sl.shape, vm.grids.velocity.shape):
+            self.assertEqual(n0, n1)
+        
+        for n0, n1 in zip(vm.sl.shape, vm.grids.twt.shape):
+            self.assertEqual(n0, n1)
+
+
 
 def suite():
-    return unittest.makeSuite(VMTestCase, 'test')
+    return unittest.makeSuite(VMTestCase, 'dev')
 
 if __name__ == '__main__':
     unittest.main(defaultTest='suite')

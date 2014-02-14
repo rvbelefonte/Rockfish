@@ -12,7 +12,7 @@ class SEGYPlotter(SEGYPlotManager):
     Convience class for plotting SEG-Y data. 
     """
     def __init__(self, ax, segy,
-                 trace_header_database=':memory:'):
+                 trace_header_database=':memory:', **kwargs):
         """
         :param ax: :class:`matplotlib.axes.Axes` instance to manage.
         :param segy: :class:`SEGYFile` with data to plot.
@@ -20,7 +20,7 @@ class SEGYPlotter(SEGYPlotManager):
             trace header attribute look-up table database.  Default                        is to create the database in memory.
         """
         SEGYPlotManager.__init__(self, ax, segy, pickdb=None,
-            trace_header_database=trace_header_database)
+            trace_header_database=trace_header_database, **kwargs)
 
     def plot_wiggles(self, force_new=False, traces=None, **kwargs):
         """
@@ -85,10 +85,13 @@ class SEGYPlotter(SEGYPlotManager):
 
         :param tr: A single :class:`SEGYTrace` instance.
         """
-        if(self.NORMALIZATION_METHOD == 'trace'):
+        if self.NORMALIZATION_METHOD == 'trace':
             amp_max = tr.data.max() * 2./self.DX
-        else:
+        elif self.NORMALIZATION_METHOD == 'global':
             amp_max = self.AMP_MAX * 2./self.DX
+        else:
+            amp_max = 1.0
+
         clip = self.DX * (self.CLIP/2.)
         xgain = abs(self.get_header_value(tr.header, 'offset'))\
                 **self.OFFSET_GAIN_POWER

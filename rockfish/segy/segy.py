@@ -137,7 +137,7 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
 
     def plot_wiggles(self, traces=None, ax=None, sphinx=None, 
                      negative_fills=False, positive_fills=True,
-                     wiggle_traces=False):
+                     wiggle_traces=False, **kwargs):
         """
         Plot trace wiggles.
         
@@ -162,7 +162,7 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
             show = True
         else:
             show = False
-        splt = SEGYPlotter(ax, self)
+        splt = SEGYPlotter(ax, self, **kwargs)
         print 'Plotting wiggles...'
         splt.plot_wiggles(traces=traces, negative_fills=negative_fills,                                  positive_fills=positive_fills,
                           wiggle_traces=wiggle_traces)

@@ -8,7 +8,7 @@ from rockfish.tomography.model import VM
 from rockfish.tomography.geometry.raypaths import assign_points_to_layers,\
         split_downup, get_points_in_layer, find_line_intersection,\
         _trim_path_ends_to_layer, insert_intersections,\
-        split_path_by_layer
+        split_path_at_interface_intersections, resample_path
 
 PLOT = False
 
@@ -313,7 +313,7 @@ class geometryTestCase(unittest.TestCase):
                 self.assertEqual(len(py), len(pi))
                 self.assertEqual(len(pz), len(pi))
 
-    def test_split_path_by_layer(self):
+    def test_split_path_at_interface_intersections(self):
         """
         Should split a path into layer segments 
         """
@@ -330,7 +330,8 @@ class geometryTestCase(unittest.TestCase):
                 ax.plot(px, pz, '.-g', markersize=20, lw=5)
                 ax.plot(_px, _pz, '.-k', markersize=10, lw=3)
 
-            segments = split_path_by_layer(self.vm, px, py, pz) 
+            segments = split_path_at_interface_intersections(
+                self.vm, px, py, pz)
 
             if PLOT:
                 for i, segments in enumerate(segments):
@@ -343,6 +344,30 @@ class geometryTestCase(unittest.TestCase):
                 plt.show()
 
             self.assertEqual(len(segments), self.vm.nr + 1)
+
+    def test_resample_path(self):
+        """
+        Should interpolate path
+        """
+        if PLOT:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+
+        for path in self.raypaths:
+            _path = np.asarray(path)
+            px, py, pz = _path[:, 0], _path[:, 1], _path[:, 2]
+
+            pxi, pyi, pzi = resample_path(px, py, pz, dx=1)
+
+            if PLOT:
+                self.vm.plot(ax=ax, show_grid=True)
+                ax.plot(px, pz, '.-g', markersize=20, lw=5)
+                ax.plot(pxi, pzi, '.-k', markersize=10, lw=3)
+
+        if PLOT:
+            plt.show()
+
+
 
 def suite():
     return unittest.makeSuite(geometryTestCase, 'test')

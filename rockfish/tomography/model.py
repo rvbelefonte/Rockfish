@@ -28,6 +28,13 @@ from rockfish.signals.smoothing import smooth1d, smooth2d
 
 ENDIAN = pack.BYTEORDER
 
+UNITS = {'slowness': 's/km',
+         'velocity': 'km/s',
+         'twt': 's',
+         'x': 'km',
+         'y': 'km',
+         'z': 'km'}
+
 x2i = lambda x, x0, dx, nx: np.clip([int(round((_x - x0) / dx))\
                                     for _x in np.atleast_1d(x)], 0, nx - 1)
 
@@ -452,32 +459,17 @@ class VM(object):
         nx = int(np.round((r2[0] - r1[0]) / dx)) + 1
         ny = int(np.round((r2[1] - r1[1]) / dy)) + 1
         nz = int(np.round((r2[2] - r1[2]) / dz)) + 1
-        # Copy variables
-        self.r1 = r1
-        self.dx = dx
-        self.dy = dy
-        self.dz = dz
         # Initialize arrays to all zeros
-        self.sl = np.zeros((nx, ny, nz))
+        self.grids = VMGrids(dx, dy, dz, np.zeros((nx, ny, nz)), 
+                xmin=r1[0], ymin=r1[1], zmin=r1[2])
         self.rf = np.zeros((nr, nx, ny))
         self.jp = np.zeros((nr, nx, ny))
         # Initialize flags as inactive
         self.ir = -1 * np.ones((nr, nx, ny))
         self.ij = -1 * np.ones((nr, nx, ny))
 
-    def init_empty_model(self):
-        """
-        Initialize a new empty model.
-        """
-        self.r1 = (None, None, None)
-        self.dx = None
-        self.dy = None
-        self.dz = None
-        self.sl = np.empty_like(0)
-        self.rf = np.empty_like(0)
-        self.jp = np.empty_like(0)
-        self.ir = np.empty_like(0)
-        self.ij = np.empty_like(0)
+        # Initialize the time model
+        self.time_model = VMTime(self)
 
     def read(self, file, endian=ENDIAN, head_only=False):
         """
@@ -516,35 +508,49 @@ class VM(object):
         fmt = '{:}iiii'.format(endian)
         nx, ny, nz, nr = unpack(fmt, file.read(4 * 4))
         fmt = '{:}fff'.format(endian)
-        self.r1 = unpack(fmt, file.read(4 * 3))
+        r1 = unpack(fmt, file.read(4 * 3))
         r2 = unpack(fmt, file.read(4 * 3))
         fmt = '{:}fff'.format(endian)
-        self.dx, self.dy, self.dz = unpack(fmt, file.read(4 * 3))
+        dx, dy, dz = unpack(fmt, file.read(4 * 3))
         if head_only is True:
-            self.sl = np.empty((nx, ny, nz))
+            sl = np.empty((nx, ny, nz))
             self.rf = np.empty((nr, nx, ny))
             self.jp = np.empty((nr, nx, ny))
             self.ir = np.empty((nr, nx, ny))
             self.ij = np.empty((nr, nx, ny))
+
+            self.grids = VMGrids(dx, dy, dz, sl, xmin=r1[0],
+                    ymin=r1[1], zmin=r1[2])
+
             return
+
         # Slowness grid
         ngrid = nx * ny * nz
         fmt = endian + ('f' * ngrid)
-        self.sl = np.asarray(unpack(fmt, file.read(4 * ngrid)))
+        sl = np.asarray(unpack(fmt, file.read(4 * ngrid)))
+        self.grids = VMGrids(dx, dy, dz, sl, xmin=r1[0], ymin=r1[1],
+                zmin=r1[2])
+
         # Interface depths and slowness jumps
         nintf = nx * ny * nr
         fmt = endian + 'f' * nintf
         self.rf = unpack(fmt, file.read(4 * nintf))
         self.jp = unpack(fmt, file.read(4 * nintf))
+
         # Interface flags
         fmt = endian + 'i' * nintf
         self.ir = unpack(fmt, file.read(4 * nintf))
         self.ij = unpack(fmt, file.read(4 * nintf))
+
         # Rearrage 1D arrays into 3D matrixes
         self._unpack_arrays(nx, ny, nz, nr)
+
         # Subtract 1 from array index flags to conform to Python convention
         self.ir -= 1
         self.ij -= 1
+        
+        # Initialize the time model
+        self.time_model = VMTime(self)
 
     def read_dws_grid(self, filename):
         """
@@ -1141,7 +1147,7 @@ class VM(object):
             self.ij[_iref][idx] += 1
         return iref
 
-    def plot(self, x=None, y=None, velocity=True, ax=None, rf=True, ir=True,
+    def plot(self, x=None, y=None, grid='velocity', ax=None, rf=True, ir=True,
              ij=True, show_grid=False, apply_jumps=True, colorbar=False,
              vmin=None, vmax=None, outfile=None, xlim=None, ylim=None):
         """
@@ -1149,8 +1155,9 @@ class VM(object):
 
         :param x,y: Coordinate values of 2D slice to plot. Default is to plot
             the first x-z plane in the model.
-        :param velocity: Determines whether to grid values in units
-            of velocity or slowness. Default is to plot velocity.
+        :param grid: Determines what type of grid values to plot. Options are
+            'velocity' (default), 'slowness', and 'twt' (two-way travel
+            time).
         :param ax:  A :class:`matplotlib.Axes.axes` object to plot
             into. Default is to create a new figure and axes.
         :param rf: Plot a thin black line for each reflector. Default is
@@ -1164,7 +1171,7 @@ class VM(object):
         :param apply_jumps: Determines whether or not to apply slowness jumps
             to the grid before plotting. Default is ``True``.
         :param colorbar: Show a colorbar. Default is ``True``.
-        :param vmin, vmax: Used to scale the velocity/slowness grid to 0-1. If
+        :param vmin, vmax: Used to scale the grid to 0-1. If
             either is ``None`` (default), the min and max of the grid is
             used.
         :param outfile: Output file string. Also used to automatically
@@ -1186,7 +1193,7 @@ class VM(object):
         if apply_jumps:
             vm.apply_jumps()
         # Plot the slice
-        vm._plot2d(velocity=velocity, ax=ax, rf=rf, ir=ir, ij=ij,
+        vm._plot2d(grid=grid, ax=ax, rf=rf, ir=ir, ij=ij,
                    show_grid=show_grid, vmin=vmin, vmax=vmax,
                    colorbar=colorbar, outfile=outfile, xlim=xlim, ylim=ylim)
         # remove the jumps
@@ -1223,7 +1230,7 @@ class VM(object):
         if show:
             plt.show()
 
-    def plot_smooth_and_jumped_model(self, x=None, y=None, velocity=True,
+    def plot_smooth_and_jumped_model(self, x=None, y=None, grid='velocity',
                                      rf=True, ir=True, ij=True,
                                      apply_jumps=True, outfile=None):
         """
@@ -1231,8 +1238,9 @@ class VM(object):
 
         :param x,y: Coordinate values of 2D slice to plot. Default is to plot
             the first x-z plane in the model.
-        :param velocity: Determines whether to grid values in units
-            of velocity or slowness. Default is to plot velocity.
+        :param grid: Determines what type of grid values to plot. Options are
+            'velocity' (default), 'slowness', and 'twt' (two-way travel
+            time).
         :param rf: Plot a thin white line for each reflector. Default is
             ``True``.
         :param ir: Plot bold white line for portion of reflector depths
@@ -1248,64 +1256,29 @@ class VM(object):
         """
         fig = plt.figure()
         ax = fig.add_subplot(211)
-        self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=False)
+        self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=False,
+                grid=grid)
         ax.set_title('Smooth Model')
         ax = fig.add_subplot(212)
-        self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=True)
+        self.plot(ax=ax, rf=False, ir=False, ij=False, apply_jumps=True,
+                grid=grid)
         ax.set_title('Jumped Model')
         if outfile:
             fig.savefig(outfile)
         else:
             plt.show()
 
-    def plot_layers(self, x=None, y=None, ax=None, rf=True, ir=False,
-             ij=False, apply_jumps=True, outfile=None):
-        """
-        Plot the model with grid nodes colored by layer id.
-
-        :param x,y: Coordinate values of 2D slice to plot. Default is to plot
-            the first x-z plane in the model.
-        :param ax:  A :class:`matplotlib.Axes.axes` object to plot
-            into. Default is to create a new figure and axes.
-        :param rf: Plot a thin white line for each reflector. Default is
-            ``True``.
-        :param ir: Plot bold white line for portion of reflector depths
-            that are active in the inversion (i.e., ir>0). Default is
-            ``False``.
-        :param ij: Plot bold white line for portion of reflector slowness jumps
-            that are active in the inversion (i.e., ij>0). Default is
-            ``False``.
-        :param outfile: Output file string. Also used to automatically
-            determine the output format. Supported file formats depend on your
-            matplotlib backend. Most backends support png, pdf, ps, eps and
-            svg. Defaults is ``None``.
-        """
-        # Pull slice from model if not already 2D
-        if (x is None) and (y is None):
-            if self.ny == 0:
-                vm = self
-            else:
-                vm = self.slice_along_xy_line(x=self.x,
-                                         y=self.y[0] * np.ones(self.nx),
-                                         dx=self.dx)
-        else:
-            vm = self.slice_along_xy_line(x=x, y=y, dx=min(self.dx, self.dy))
-        # Plot the slice
-        grid = np.asarray([v[0] for v in vm.layers])
-        vm._plot2d(velocity=False, ax=ax, rf=rf, ir=ir, ij=ij, grid=grid,
-                   outfile=outfile)
-
-    def _plot2d(self, velocity=True, ax=None, rf=True, ir=True, ij=True,
-                grid=None, show_grid=False,
-                colorbar=True, vmin=None, vmax=None, outfile=None,
-                aspect=None, ylim=None, xlim=None):
+    def _plot2d(self, grid='velocity', ax=None, rf=True, ir=True, ij=True,
+                show_grid=False, colorbar=True, vmin=None, vmax=None,
+                outfile=None, aspect=None, ylim=None, xlim=None):
         """
         Plot a 2D model.
 
         Keyword Arguments
         -----------------
-        velocity : bool
-            Determines whether to grid values in units of velocity or slowness.            Default is to plot velocity.
+        :param grid: Determines what type of grid values to plot. Options are
+            'velocity' (default), 'slowness', and 'twt' (two-way travel
+            time).
         ax : {None, :class:`matplotlib.Axes.axes`}
             Axes to plot into. Default is to create a new figure and axes.
         rf : bool
@@ -1339,10 +1312,9 @@ class VM(object):
             configuration ``image.aspect`` value.
         """
         assert self.ny == 1, "Model must be 2D with ny=1."
-        if grid is None:
-            grid = np.asarray([d[0] for d in self.sl])
-        if velocity:
-            grid = 1. / grid
+
+        grid = np.asarray([d[0] for d in self.grids.__getattribute__(grid)])
+
         if ax is None:
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -1611,6 +1583,62 @@ class VM(object):
 
 
     # Properties
+    def _get_sl(self):
+        """
+        Getter for aliasing sl to grids.slowness
+        """
+        return self.grids.slowness
+
+    def _set_sl(self, value):
+        """
+        Setter for aliasing sl to grids.slowness
+        """
+        self.grids.slowness = value
+        
+    sl = property(fget=_get_sl, fset=_set_sl)
+
+    def _get_dx(self):
+        """
+        Getter for aliasing dx to grids.dx
+        """
+        return self.grids.dx
+
+    def _set_dx(self, value):
+        """
+        Setter for aliasing dx to grids.dx
+        """
+        self.grids.dx = value
+        
+    dx = property(fget=_get_dx, fset=_set_dx)
+
+    def _get_dy(self):
+        """
+        Getter for aliasing dy to grids.dy
+        """
+        return self.grids.dy
+
+    def _set_dy(self, value):
+        """
+        Setter for aliasing dy to grids.dy
+        """
+        self.grids.dy = value
+        
+    dy = property(fget=_get_dy, fset=_set_dy)
+
+    def _get_dz(self):
+        """
+        Getter for aliasing dz to grids.dz
+        """
+        return self.grids.dz
+
+    def _set_dz(self, value):
+        """
+        Setter for aliasing dz to grids.dz
+        """
+        self.grids.dz = value
+        
+    dz = property(fget=_get_dz, fset=_set_dz)
+
     def _get_nr(self):
         """
         Returns the number of reflectors in the model.
@@ -1625,21 +1653,21 @@ class VM(object):
         """
         Returns the number of x-nodes in the model grid.
         """
-        return self.sl.shape[0]
+        return self.grids.nx
     nx = property(fget=_get_nx)
 
     def _get_ny(self):
         """
         Returns the number of y-nodes in the model grid.
         """
-        return self.sl.shape[1]
+        return self.grids.ny
     ny = property(fget=_get_ny)
 
     def _get_nz(self):
         """
         Returns the number of z-nodes in the model grid.
         """
-        return self.sl.shape[2]
+        return self.grids.nz
     nz = property(fget=_get_nz)
 
     def _get_x(self):
@@ -1663,9 +1691,23 @@ class VM(object):
         return self.r1[2] + np.asarray(range(0, self.nz)) * self.dz
     z = property(fget=_get_z)
 
+    def _get_r1(self):
+        """
+        Returns a tuple of minimum model coordinates
+        """
+        return (self.grids.xmin, self.grids.ymin, self.grids.zmin)
+
+    def _set_r1(self, value):
+        """
+        Sets minimum model coordinates from a tuple of x, y, z values
+        """
+        self.grids.xmin, self.grids.ymin, self.grids.zmin = value
+    
+    r1 = property(fget=_get_r1, fset=_set_r1)
+
     def _get_r2(self):
         """
-        Returns a tuple of maximum model dimensions.
+        Returns a tuple of maximum model coordinates
         """
         return (self.x[-1], self.y[-1], self.z[-1])
     r2 = property(fget=_get_r2)
@@ -1684,6 +1726,164 @@ class VM(object):
                     lyr[ix, iy, iz] = iref
         return lyr
     layers = property(fget=_get_layers)
+
+
+class VMGrids(object):
+    """
+    Class for managing grids in VM Tomography models
+    """
+    def __init__(self, dx, dy, dz, sl, xmin=0, ymin=0, zmin=0):
+        self.dx = dx
+        self.dy = dy
+        self.dz = dz
+        self.slowness = sl
+        self.xmin = xmin
+        self.ymin = ymin
+        self.zmin = zmin
+
+    def _get_nx(self):
+        """
+        Returns the number of x-nodes in the model grid.
+        """
+        return self.slowness.shape[0]
+    nx = property(fget=_get_nx)
+
+    def _get_ny(self):
+        """
+        Returns the number of y-nodes in the model grid.
+        """
+        return self.slowness.shape[1]
+    ny = property(fget=_get_ny)
+
+    def _get_nz(self):
+        """
+        Returns the number of z-nodes in the model grid.
+        """
+        return self.slowness.shape[2]
+    nz = property(fget=_get_nz)
+
+    
+    def _get_twt(self):
+        """
+        Returns the model grid in verticle two-way travel time
+        """
+        twt = 2 * self.dz * np.cumsum(self.slowness, axis=2)
+        for ix in range(self.nx):
+            for iy in range(self.ny):
+                twt[ix, iy, :] -= twt[ix, iy, 0]
+        return twt
+    twt = property(fget=_get_twt)
+
+    def _get_velocity(self):
+        """
+        Returns the model grid in velocity
+        """
+        return 1. / self.slowness
+
+    def _set_velocity(self, value):
+        """
+        Sets the main slowness grid using velocity values
+        """
+        self.slowness = 1. / value
+
+    velocity = property(fget=_get_velocity, fset=_set_velocity)
+
+
+class VMTime(object):
+    """
+    Class for working with VM Tomography models in time, rather than depth.
+    """
+    def __init__(self, vm, dt=0.1):
+        self._vm = vm
+        self.dt = dt
+
+    def write_ascii_grid(self, filename, grid='velocity'):
+
+
+        file = open(filename, 'w')
+        # Write a header
+        file.write('# VM Tomography velocity model grid in time\n')
+        
+        file.write('#\n# Exported from: {:}\n'.format(self._vm.file.name))
+        file.write('# Created by: {:} (version {:})\n'\
+                   .format(__name__, __version__))
+        file.write('# Created on: {:}\n'.format(datetime.datetime.now()))
+        file.write('#\n')
+        units = ', '.join(['{:} [{:}]'.format(v, UNITS[v])\
+                for v in ['x', 'y', 'twt', grid]])
+        file.write('# {:}\n'.format(units))
+        twt = self.twt[:]
+        nt = len(twt)
+        grd = self.grids.__getattribute__(grid)[:, :, :]
+        for ix in range(0, self._vm.nx):
+            x = (self._vm.r1[0] + ix * self._vm.dx)
+            for iy in range(0, self._vm.ny):
+                y = (self._vm.r1[1] + iy * self._vm.dy)
+                for it in range(0, nt):
+                    file.write('{:}, {:}, {:}, {:}\n'\
+                               .format(x, y, twt[it], grd[ix, iy, it]))
+        file.close()
+
+        
+
+    def _plot2d(self, ax=None, grid='velocity', vmin=None, vmax=None):
+        """
+        Plot the time model. 
+        """
+        assert self._vm.ny == 1, "Model must be 2D with ny=1."
+        grid = np.asarray([d[0] for d in self.grids.__getattribute__(grid)])
+
+        if ax is None:
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            show = True
+        else:
+            show = False
+
+        img = ax.imshow(grid.transpose(), vmin=vmin, vmax=vmax,
+                extent=(self._vm.r1[0], self._vm.r2[0], self.twt[0],
+                    self.twt[-1]))
+
+        if show:
+            plt.show()
+        else:
+            plt.draw()
+    
+    def _get_twt(self):
+        """
+        Calculates time range
+        """
+        twt = np.arange(self._vm.grids.twt.min(),
+               self._vm.grids.twt.max(), self.dt)
+        return twt
+    twt = property(fget=_get_twt)
+
+    def _get_sl(self):
+        """
+        Interpolates a grid of slowness values for a uniform time grid
+        """
+        sl = np.zeros((self._vm.nx, self._vm.ny, len(self.twt)))
+        for ix in self._vm.xrange2i():
+            for iy in self._vm.yrange2i():
+                twt2sl = interp1d(self._vm.grids.twt[ix, iy, :],
+                        self._vm.grids.slowness[ix, iy, :], kind='linear')
+                sl[ix, iy, :] = twt2sl(self.twt)
+
+        return sl
+
+    def _get_grids(self):
+        """
+        Reinitializes the grids
+        """
+        grids = VMGrids(self._vm.dx, self._vm.dy, self.dt, self._get_sl(),
+                xmin=self._vm.r1[0], ymin=self._vm.r1[1], zmin=0)
+        return grids
+
+    grids = property(fget=_get_grids)
+
+
+
+
 
 
 def readVM(file, endian=ENDIAN, head_only=False):

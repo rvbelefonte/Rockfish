@@ -15,7 +15,7 @@ class SEGYPlotManager(object):
     Handles plot layers, parameters, and unit conversions.
     """
     def __init__(self, ax, segy, pickdb=None,
-                 trace_header_database=':memory:'):
+                 trace_header_database=':memory:', **kwargs):
         """
         Set default plotter configuration parameters
 
@@ -32,19 +32,21 @@ class SEGYPlotManager(object):
         self.ACTIVE_PATCHES = {}
         self.INACTIVE_PATCHES = {}
         # General parameters
-        self.ABSCISSA_KEY = 'source_receiver_offset_in_m'
+        self.ABSCISSA_KEY = kwargs.pop('abscissa_key',
+                'source_receiver_offset_in_m')
         # Data plotting parameters
-        self.GAIN = 1.0
-        self.CLIP = 1.0 
-        self.NORMALIZATION_METHOD = 'trace'
-        self.OFFSET_GAIN_POWER = 0
-        self.WIGGLE_PEN_COLOR = 'black'
-        self.WIGGLE_PEN_WIDTH = 0.5
-        self.NEG_FILL_COLOR = 'red'
-        self.POS_FILL_COLOR = 'black'
+        self.GAIN = kwargs.pop('gain', 1.0)
+        self.CLIP = kwargs.pop('clip', 1.0) 
+        self.NORMALIZATION_METHOD = kwargs.pop('normalization_method',
+                'trace')
+        self.OFFSET_GAIN_POWER = kwargs.pop('offset_gain_power', 0.0)
+        self.WIGGLE_PEN_COLOR = kwargs.pop('wiggle_pen_color', 'black')
+        self.WIGGLE_PEN_WIDTH = kwargs.pop('wiggle_pen_width', 0.5)
+        self.NEG_FILL_COLOR = kwargs.pop('neg_fill_color', 'red') 
+        self.POS_FILL_COLOR = kwargs.pop('pos_fill_color', 'black')
         # Unit parameters
-        self.DISTANCE_UNIT = 'km'
-        self.TIME_UNIT = 's'
+        self.DISTANCE_UNIT = kwargs.pop('distance_unit', 'km')
+        self.TIME_UNIT = kwargs.pop('time_unit', 's')
         self.SEGY_TIME_UNITS = {'time':'ms',
                                 'delay':'ms',
                                 'sample_interval':'microseconds'}

@@ -2,6 +2,7 @@
 Utilities for working with raypaths
 """
 import numpy as np
+from scipy.interpolate import Rbf
 from rockfish.tomography.model import VM
 from rockfish.tomography.geometry.utils import point_in_poly, line_plane_isect
 
@@ -273,7 +274,8 @@ def insert_intersections(vm, px, py, pz, pi=None, duplicate=False):
                     
     return _px, _py, _pz, _pi
 
-def split_path_by_layer(vm, px, py, pz):
+
+def split_path_at_interface_intersections(vm, px, py, pz):
     """
     Splits path into segments within each layer.
 
@@ -308,8 +310,38 @@ def split_path_by_layer(vm, px, py, pz):
 
             segments[ilyr][i] = np.asarray([_px[idx], _py[idx], _pz[idx]]).T
 
-    return segments 
+    return segments
 
-            
+def resample_path(px, py, pz, dx, dy=None, function='linear'):
+    """
+    Resample a path
+
+    Parameters
+    ----------
+    px, py, pz : array_like
+        Arrays of x, y, z coordinates of points along a path.
+    dx : float
+        New sample interval for the x-dimension
+    dy : float, optional
+        New sample interval for the y-dimension.  Default is to set dx=dy.
+    function : str or callable, optional
+        The radial basis function, based on the radius, r, given by the norm
+        (default is linear distance).  See :method:`scipy.interpolate.rbf.Rbf`
+        for more information.
+
+    Returns
+    -------
+    px, py, pz : array
+        Arrays of x, y, z coordinates of points along a path.
+    """
+    f = Rbf(px, py, pz, function=function)
+
+    xi = np.arange(min(px), max(px) + dx, dx)
 
 
+    if dy is None:
+        dy = dx
+    
+    yi = np.arange(min(py), max(py) + dy, dy)
+
+    return xi, yi, f(xi, yi)
