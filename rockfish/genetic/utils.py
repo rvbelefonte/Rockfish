@@ -1,4 +1,5 @@
 import numpy as np
+import logging
 import bitstring
 
 def float2bin(values, length=32):
@@ -49,16 +50,27 @@ def crossover(f1, f2, nbits=32):
     else:
         return f1_1.reshape(shape0), f2_1.reshape(shape0)
 
-def mutate(values, length=32):
+def mutate(values, length=32, nan=0.):
     """
     Flips all bits in values
     """
+    logging.debug('mutate got type(values) = {:}'.format(type(values)))
     values = np.atleast_1d(values)
     shape0 = values.shape
 
-    values = values.flatten()
+    logging.debug('...recast as {:} with shape {:}'\
+            .format(type(values), shape0))
+    
+    f0 = values.flatten()
 
-    b = float2bin(values, length=length)
+    b = float2bin(f0, length=length)
     b1 = [''.join([str(abs(int(v) - 1)) for v in _b]) for _b in b]
 
-    return bin2float(b1).reshape(shape0)
+    f1 = bin2float(b1)
+
+    idx = np.isnan(f1)
+    f1[idx] = f0[idx]
+    
+    return f1.reshape(shape0)
+
+

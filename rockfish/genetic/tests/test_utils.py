@@ -62,14 +62,42 @@ class utilsTestCase(unittest.TestCase):
         """
         Should perform binary mutation
         """
+        # should not change shape of 1d array
         f0 = np.random.rand(100)
-
         f1 = mutate(f0)
+        self.assertEqual(f0.shape, f1.shape)
 
-        self.assertEqual(len(f0), len(f1))
-
+        # should mutate all values
         for _f0, _f1 in zip(f0, f1):
             self.assertNotEqual(_f0, _f1)
+
+        # should take multi-dimensional arrays
+        f0 = np.random.rand(10, 3)
+        f1 = mutate(f0)
+        self.assertEqual(f0.shape, f1.shape)
+        for i in range(10):
+            for j in range(3):
+                    self.assertNotEqual(f0[i, j], f1[i, j])
+
+        # should not produce NaNs
+        f0 = np.round(np.random.rand(1000))
+        f1 = mutate(f0)
+        self.assertEqual(len(np.nonzero(np.isnan(f1))[0]), 0)
+
+    def test_reshape(self):
+        """
+        Reshaping arrays should be reversable
+        """
+        f0 = np.random.rand(10, 3)
+        shape = f0.shape
+
+        f1 = f0.flatten()
+        f1 = f1.reshape(shape)
+
+        self.assertEqual(f0.shape, f1.shape)
+        for i in range(10):
+            for j in range(3):
+                    self.assertEqual(f0[i, j], f1[i, j])
 
 
 def suite():
