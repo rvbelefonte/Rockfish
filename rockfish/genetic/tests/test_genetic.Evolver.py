@@ -97,11 +97,11 @@ class EvolverTestCase(unittest.TestCase):
         Should evolve the population by a given number of generations
         """
         pop0 = []
-        for i in range(20):
-            pop0.append(np.random.rand(5))
+        for i in range(10):
+            pop0.append(2. * np.random.rand(5))
 
-        ga = Evolver(pop0, eval_one_max, crossover_probability=0.5,
-                mutation_probability=0.5, degeneration=False)
+        ga = Evolver(pop0, eval_one_max, crossover_probability=0.8,
+                mutation_probability=0.5, degeneration=True)
 
         ga.evolve(ngen=100, verbose=2)
 

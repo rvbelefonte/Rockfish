@@ -1,5 +1,6 @@
 temp.*
 *.py[co]
+.ipynb_checkpoints
 *.swp
 *~
 .noseids

@@ -2,7 +2,7 @@ import numpy as np
 import logging
 import copy
 from functools import partial 
-from utils import bin2float, float2bin, crossover, mutate
+from utils import crossover, mutate, POS0
 
 
 class Toolbox(object):
@@ -234,7 +234,14 @@ class Evolver(Toolbox, Population):
         
         self.CROSSOVER_PROBABILITY = kwargs.pop('crossover_probability',
                 0.5)
+        self.CROSSOVER_PROBABILITY =\
+                kwargs.pop('px', self.CROSSOVER_PROBABILITY)
+
         self.MUTATION_PROBABILITY = kwargs.pop('mutation_probability', 0.5)
+        self.MUTATION_PROBABILITY =\
+                kwargs.pop('pm', self.MUTATION_PROBABILITY)
+
+        self.MUTATION_BIT0 = POS0[64]
         
         self.generations = [Population(individuals=individuals,
             crossover_probability = self.CROSSOVER_PROBABILITY,
@@ -257,9 +264,10 @@ class Evolver(Toolbox, Population):
     fitness = property(fget=_get_fitness, fset=_set_fitness)
 
     def _best_fit(self):
+        ibest = np.argmax([g.fitness.max() for g in self.generations])
 
-        ibest = np.argmax(self.fitness)
-        return self.individuals[ibest], self.fitness[ibest]
+        return self.generations[ibest].individuals[0],\
+                self.generations[ibest].fitness[0]
 
     def _get_best_individual(self):
         return self._best_fit()[0]
@@ -285,7 +293,7 @@ class Evolver(Toolbox, Population):
 
         self.generations[-1].clone()
         self.generations[-1].crossover()
-        self.generations[-1].mutate()
+        self.generations[-1].mutate(pos=range(self.MUTATION_BIT0, 64))
         self.evaluate()
         
         fit1 = self.fitness.max()
@@ -294,7 +302,7 @@ class Evolver(Toolbox, Population):
         if not self.DEGENERATION and (fit1 < fit0):
             self.generations[-1] = self.generations[-2]
 
-    def evolve(self, ngen=50, verbose=True):
+    def evolve(self, ngen=50, target_fitness=np.inf, verbose=True):
         """
         Evolve the population for ngen generations
         """
@@ -313,10 +321,10 @@ class Evolver(Toolbox, Population):
         for igen in range(igen0, igen0 + ngen):
             self._evolve()
 
-            if verbose >= 1:
-                print '{:}   {:}   {:}   {:}   {:}'\
-                    .format(igen, np.std(self.fitness), self.fitness.min(),
-                            self.fitness.mean(), self.fitness.max())
+            #if verbose >= 1:
+            #    print '{:}   {:}   {:}   {:}   {:}'\
+            #        .format(igen, np.std(self.fitness), self.fitness.min(),
+            #                self.fitness.mean(), self.fitness.max())
             
             if verbose >= 2:
                 print '    {:} {:}'.format(self.fitness[0],
@@ -325,6 +333,9 @@ class Evolver(Toolbox, Population):
             if verbose >= 3:
                 for f, i in zip(self.fitness[1:], self.individuals[1:]):
                     print '    {:} {:}'.format(f, i)
+
+            if self.best_fit >= target_fitness:
+                break
 
 
         if verbose >= 1:

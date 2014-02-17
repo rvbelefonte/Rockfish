@@ -1,22 +1,39 @@
 import numpy as np
 import logging
-import bitstring
+import bitstring as bs
+
+POS0 = {32: 9,
+        64: 11}
+
+def sigfigs(values):
+    
+    return np.asarray([len(str(v)) for v in values]) - 1
 
 def float2bin(values, length=32):
 
     values = np.atleast_1d(values)
+    
+    #XXX do we need scaling??
+    powers = np.ones(len(values))
 
-    return np.asarray([bitstring.BitArray(float=v, length=length).bin\
-            for v in values])
+    f0 = values / 10. ** powers
+    b = np.asarray([bs.BitArray(float=v, length=length).bin\
+            for v in f0])
 
-def bin2float(values):
+    return b, powers
+
+def bin2float(values, powers):
 
     values = np.atleast_1d(values)
+    powers = np.atleast_1d(powers)
     
-    return np.asarray([bitstring.BitArray(bin=v).float for v in values])
+    f0 = np.asarray([bs.BitArray(bin=v).float for v in values])
+    f0 *= 10. ** powers
+
+    return f0
 
 
-def crossover(f1, f2, nbits=32):
+def crossover(f1, f2, length=64):
     """
     binary crossover of two floating point numbers or values in arrays
     """
@@ -34,26 +51,35 @@ def crossover(f1, f2, nbits=32):
     f1 = f1.flatten()
     f2 = f2.flatten()
 
-    b1_0 = float2bin(f1, length=nbits)
-    b2_0 = float2bin(f2, length=nbits)
+    b1_0 = [bs.BitArray(float=v, length=length).bin for v in f1]
+    b2_0 = [bs.BitArray(float=v, length=length).bin for v in f2]
 
-    f1_1 = np.empty(f1.shape)
-    f2_1 = np.empty(f2.shape)
+    f1_1 = np.zeros(f1.shape)
+    f2_1 = np.zeros(f2.shape)
     for i, b0 in enumerate(zip(b1_0, b2_0)):
-        ibit = np.random.randint(0, nbits)
+        #ibit = np.random.randint(POS0[length], length)
 
-        f1_1[i] = bin2float(b0[0][0: ibit] + b0[1][ibit:])
-        f2_1[i] = bin2float(b0[1][0: ibit] + b0[0][ibit:])
+        #f1_1[i] = bs.BitArray(bin=b0[0][0:POS0[length]]\
+        #    + b0[0][POS0[length]: ibit] + b0[1][ibit:]).float
+        #f2_1[i] = bs.BitArray(bin=b0[1][0:POS0[length]]\
+        #    + b0[1][POS0[length]: ibit] + b0[0][ibit:]).float
+
+        ibit = np.random.randint(0, length)
+        f1_1[i] = bs.BitArray(bin=b0[0][0: ibit] + b0[1][ibit:]).float
+        f2_1[i] = bs.BitArray(bin=b0[1][0: ibit] + b0[0][ibit:]).float
 
     if scalar:
         return f1_1[0], f2_1[0]
     else:
         return f1_1.reshape(shape0), f2_1.reshape(shape0)
 
-def mutate(values, length=32, nan=0.):
+def mutate(values, length=64, **kwargs):
     """
     Flips all bits in values
     """
+    pos = kwargs.get('pos', range(POS0[length], length))
+
+
     logging.debug('mutate got type(values) = {:}'.format(type(values)))
     values = np.atleast_1d(values)
     shape0 = values.shape
@@ -63,14 +89,16 @@ def mutate(values, length=32, nan=0.):
     
     f0 = values.flatten()
 
-    b = float2bin(f0, length=length)
-    b1 = [''.join([str(abs(int(v) - 1)) for v in _b]) for _b in b]
+    b = [bs.BitArray(float=_f, length=length) for _f in f0]
 
-    f1 = bin2float(b1)
+    for _b in b:
+        _b.invert(pos=pos)
 
-    idx = np.isnan(f1)
-    f1[idx] = f0[idx]
+    #[_b.invert(pos=range(length)) for _b in b]
+
+    f1 = np.asarray([_b.float for _b in b])
     
+
     return f1.reshape(shape0)
 
 
