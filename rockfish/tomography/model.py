@@ -552,6 +552,35 @@ class VM(object):
         # Initialize the time model
         self.time_model = VMTime(self)
 
+    def _read_fmtomo(self, file):
+        """
+        Read a FMTOMO velocity model.
+        """
+        dat = file.readlines()
+
+        i0, i1 = [int(v) for v in dat[0].split()]
+        nx, ny, nz = [int(v) for v in dat[1].split()]
+        dx, dy, dz = [float(v) for v in dat[2].split()]
+        r0 = [float(v) for v in dat[3].split()]
+
+        print [float(v) for v in dat[4:]]
+
+        vel = [float(v) for v in dat[4:]]
+
+        print len(vel)
+        print nx, ny, nz
+        print nx * ny * nz
+
+        self.dx = dx
+        self.dy = dy
+        self.dz = dz
+
+        self.r0 = r0
+
+
+
+
+
     def read_dws_grid(self, filename):
         """
         Read derivative-weight sum (DWS) data.

@@ -3,6 +3,7 @@ Tools for working with genetic algorithms
 """
 import numpy as np
 from functools import partial
+import logging
 from scipy.optimize import newton
 
 class Toolbox(object):
@@ -125,6 +126,7 @@ def bga_mutate(values, r=0.1, k=0.001):
     Breeder Genetic Algorithm: I. Continuous Parameter Optimization.
     Evolutionary Computation, 1 (1), pp. 25-49, 1993.
     """
+    logging.debug('r={:}, k={:}'.format(r, k))
 
     values = np.atleast_1d(values)
     shape0 = values.shape
@@ -135,11 +137,14 @@ def bga_mutate(values, r=0.1, k=0.001):
     imutate = np.random.randint(0, n0, np.random.randint(n0))
 
     n = len(imutate)
-    s = 2. * (np.random.rand(n) - 0.5)
-    u = np.random.rand(n)
-    a = 2. ** (-u * k)
 
-    values[imutate] += s * r * values[imutate] * a
+    s = 2. * (np.random.rand(n) - 0.5) 
+    u = np.random.rand(n)
+    #XXX a = 2. ** (-u * k)
+
+    a = np.random.rand(n) #* k
+
+    values[imutate] += s * r * a * values[imutate]
 
     return values.reshape(shape0)
 

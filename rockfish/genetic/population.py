@@ -2,6 +2,8 @@
 Module for working with evolving populations
 """
 import numpy as np
+import copy
+import logging
 import tools
 
 
@@ -45,6 +47,15 @@ class Population(object):
 
     fitness = property(fget=_get_fitness, fset=_set_fitness)
 
+    def _get_max_fitness(self):
+
+        fit = self.fitness
+        idx = np.isfinite(fit)
+
+        return np.max(fit[idx])
+
+    max_fitness = property(_get_max_fitness)
+
     def _get_inew(self):
         """
         Returns the indices of individuals flagged as new
@@ -81,22 +92,35 @@ class Evolver(tools.Toolbox):
     def __init__(self, individuals, evaluate, *args, **kwargs):
 
         self.NEW_FLAG = kwargs.pop('new_flag', np.nan)
+        self.SP = kwargs.pop('sp', 2)
+        self.R = kwargs.pop('r', 0.1)
+        self.K = kwargs.pop('k', 0.001)
+        self.R_REDUCE = kwargs.pop('r_reduce', 0.1)
+        self.GROWTH_FACTOR = kwargs.pop('growth_factor', 1.)
 
         self.generations = [Population(individuals=individuals,
             fitness=kwargs.pop('fitness', None), new_flag=self.NEW_FLAG)]
 
+        self.NPOP = kwargs.pop('npop', len(individuals))
         self.register('_evaluate', evaluate, *args, **kwargs)
         self.evaluate()
 
         # register the default tools
-        self.register('_rank', tools.linear_rank, sp=2)
-        self.register('_mutate', tools.bga_mutate, r=0.1, k=0.001)
+        self.register('_rank', tools.linear_rank, sp=self.SP)
+        self.register('_mutate', tools.bga_mutate, r=self.R, k=self.K)
 
     def _get_ibest_fit(self):
+        #XXX FIXME this doesn't count properly when there are NaNs
         return np.argmax([g.fitness[-1] for g in self.generations\
                 if not np.isnan(g.fitness[-1])])
 
     ibest_fit = property(fget=_get_ibest_fit)
+
+    def _get_best_fit(self):
+        return np.max([g.fitness[-1] for g in self.generations\
+                if not np.isnan(g.fitness[-1])])
+
+    best_fit = property(fget=_get_best_fit)
 
     def _get_best_individual(self):
 
@@ -113,7 +137,9 @@ class Evolver(tools.Toolbox):
         return self._rank(self.generations[-1].fitness)
 
     def mutate(self):
-        f1 = self._mutate(self.generations[-1]._individuals)
+
+        f1 = self._mutate(self.generations[-1]._individuals, r=self.R,
+                k=self.K)
 
         inew = np.nonzero(np.sum(self.generations[-1]._individuals - f1,
             axis=1))
@@ -121,22 +147,50 @@ class Evolver(tools.Toolbox):
         self.generations[-1]._individuals = f1
         self.generations[-1]._fitness[inew] = self.NEW_FLAG
 
-    def clone(self, growth_factor=1.):
+    def clone(self, **kwargs):
+        growth_factor = kwargs.pop('growth_factor', self.GROWTH_FACTOR)
         nchild = np.round(self.rank() * growth_factor)
-        f1 = tools.clone(self.generations[-1].individuals, nchild)
-        fit1 = tools.clone(self.generations[-1].fitness, nchild)
 
-        self.generations.append(Population(individuals=f1, fitness=fit1,
+        f1 = tools.clone(self.generations[-1].individuals, nchild)
+        #fit1 = tools.clone(self.generations[-1].fitness, nchild)
+
+
+        self.generations.append(Population(individuals=f1,
             new_flag=self.NEW_FLAG))
+
 
         self.generations[-1].fitness =\
                 tools.clone(self.generations[-1].fitness, nchild)
 
     def _evolve(self):
 
+        if (len(self.generations) > 1) and self.R_REDUCE:
+            dfit = (self.generations[-1].max_fitness\
+                    - self.generations[-2].max_fitness)\
+                    / self.generations[-2].max_fitness
+                    
+            logging.debug('dfit = {:}'.format(dfit))
+            if dfit < 1.e-6:
+                self.R *= self.R_REDUCE
+
+        logging.debug('best_fit = {:}'.format(self.best_fit))
         self.clone()
         self.mutate()
         self.evaluate()
+
+        npop = len(self.generations[-1].individuals)
+        idx = range(-min(self.NPOP, npop), 0)
+        self.generations[-1].individuals = \
+                self.generations[-1].individuals[idx]
+        self.generations[-1].fitness = \
+                self.generations[-1].fitness[idx]
+        
+        # prevent degeneration
+        best_fit = self.best_fit
+        self.generations[-1].individuals[0] = self.best_individual
+        self.generations[-1].fitness[0] = best_fit
+
+        self._best_fit0 = copy.copy(self.best_fit)
 
 
     def evolve(self, ngen=1):
