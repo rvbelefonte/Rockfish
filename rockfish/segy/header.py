@@ -113,7 +113,7 @@ TRACE_HEADER_FORMAT = [
     [2, 'hour_of_day', False, 160],
     [2, 'minute_of_hour', False, 162],
     [2, 'second_of_minute', False, 164],
-    [2, 'time_basis_code', False, 166],
+    [2, 'millisecond_of_second', False, 166],
     [2, 'trace_weighting_factor', False, 168],
     [2, 'geophone_group_number_of_roll_switch_position_one', False, 170],
     [2, 'geophone_group_number_of_trace_number_one', False, 172],
@@ -155,7 +155,8 @@ TRACE_HEADER_FORMAT = [
     [4, 'source_measurement_mantissa', False, 224],
     [2, 'source_measurement_exponent', False, 228],
     [2, 'source_measurement_unit', False, 230],
-    [8, 'unassigned', False, 232]]
+    [4, 'microsecond_of_second', False, 232],
+    [4, 'unassigned', False, 236]]
 
 TRACE_HEADER_KEYS = [_i[1] for _i in TRACE_HEADER_FORMAT]
 

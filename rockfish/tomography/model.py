@@ -13,6 +13,7 @@ indicates that a node is to be excluded from the inversion.
 """
 import os
 import warnings
+import subprocess
 import numpy as np
 from scipy.io import netcdf_file as netcdf
 from scipy.interpolate import interp1d, interp2d
@@ -37,6 +38,13 @@ UNITS = {'slowness': 's/km',
 
 x2i = lambda x, x0, dx, nx: np.clip([int(round((_x - x0) / dx))\
                                     for _x in np.atleast_1d(x)], 0, nx - 1)
+
+
+class GMTCallError(Exception):
+    """
+    Raised if there is a problem calling a shell script
+    """
+
 
 class VM(object):
     """
@@ -654,54 +662,80 @@ class VM(object):
         # Unpack the arrays for future use
         self._unpack_arrays(nx, ny, nz, nr)
 
-    def write_ascii_grid(self, filename, meters=False, velocity=False):
+    def write_ascii_grid(self, filename, grid='sl', meters=False,
+            velocity=False):
         """
         Write VM model slowness grid in an ASCII format.
 
         :param filename: Name of a file to write data to.
+        :param grid: Grid attribute to write data from. Default is `sl`
+            (slowness).
         :param meters: Output distance units in meters. Default is
             kilometers.
         :param velocity: Output slowness values as velocity. Default
             is slowness.
         """
         file = open(filename, 'w')
+        # Get grid
+        grd = self.__getattribute__(grid)
         # Write a header
         file.write('# VM Tomography velocity model grid\n')
         if meters is True:
             xscale = 1000.
             units = 'x_m y_m z_m'
-            if velocity is True:
-                units += ' velocity_meters_per_second'
-            else:
-                units += ' slowness_seconds_per_meter'
         else:
             xscale = 1.
             units = 'x_km y_km z_km'
-            if velocity is True:
-                units += ' velocity_kilometers_per_second'
-            else:
-                units += ' slowness_seconds_per_kilometer'
+        units += ' {:}'.format(grid)
         file.write('# {:}\n'.format(units))
-        file.write('#\n# Exported from: {:}\n'.format(self.file.name))
+        if hasattr(self, 'file'):
+            file.write('#\n# Exported from: {:}\n'.format(self.file.name))
+        else:
+            file.write('#\n# Exported from: memory\n')
         file.write('# Created by: {:} (version {:})\n'\
                    .format(os.path.basename(__file__), __version__))
         file.write('# Created on: {:}\n'.format(datetime.datetime.now()))
-        file.write('#\n# Grid overview:\n')
-        for line in self._get_full_overview().split('\n'):
-            file.write('# {:}\n'.format(line))
-        for ix in range(0, self.nx):
+        #file.write('#\n# Grid overview:\n')
+        #for line in self._get_full_overview().split('\n'):
+        #    file.write('# {:}\n'.format(line))
+        for ix in self.xrange2i(): 
             x = (self.r1[0] + ix * self.dx) * xscale
-            for iy in range(0, self.ny):
+            for iy in self.yrange2i(): 
                 y = (self.r1[1] + iy * self.dy) * xscale
-                for iz in range(0, self.nz):
+                for iz in self.zrange2i(): 
                     z = (self.r1[2] + iz * self.dz) * xscale
                     if velocity is True:
-                        _sl = xscale / self.sl[iz][iy][ix]
+                        _grd = 1. / grd[ix][iy][iz]
                     else:
-                        _sl = self.sl[iz][iy][ix] / xscale
+                        _grd = grd[ix][iy][iz]
+
                     file.write('{:20.3f} {:20.3f} {:20.3f} {:10.5f}\n'\
-                               .format(x, y, z, _sl))
+                               .format(x, y, z, _grd))
         file.close()
+
+    def write_grd(self, grdfile, grid='sl', velocity=False):
+
+        assert self.ny == 1, 'write_grd() only works with 2D models (ny=1)'
+
+        xyzfile = '.temp.vm.xyzv'
+
+        self.write_ascii_grid(xyzfile, grid=grid, velocity=velocity,
+                meters=False)
+
+        gmt = "awk '(substr($0, 1, 1)!=" + '"#"'\
+                + "){print $1, $3, $4}' " + xyzfile
+
+        gmt += ' | gmt xyz2grd -G{:} -R{:}/{:}/{:}/{:} -I{:}/{:}'\
+                .format(grdfile, self.r1[0], self.r2[0],
+                        self.r1[2], self.r2[2], self.dx, self.dz)
+
+        subprocess.call(gmt, shell=True)
+
+        if not os.path.isfile(grdfile):
+            raise GMTCallError('Problem executing shell script: {:}'\
+                    .format(gmt))
+
+        os.remove(xyzfile)
 
     def project_model(self, angle, dx=None, x=None, y=None):
         """
@@ -1832,8 +1866,11 @@ class VMTime(object):
         file = open(filename, 'w')
         # Write a header
         file.write('# VM Tomography velocity model grid in time\n')
-        
-        file.write('#\n# Exported from: {:}\n'.format(self._vm.file.name))
+       
+        if hasattr(self._vm, 'file'):
+            file.write('#\n# Exported from: {:}\n'.format(self._vm.file.name))
+        else:
+            file.write('#\n# Exported from: memory\n') 
         file.write('# Created by: {:} (version {:})\n'\
                    .format(__name__, __version__))
         file.write('# Created on: {:}\n'.format(datetime.datetime.now()))

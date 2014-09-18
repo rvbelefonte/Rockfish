@@ -4,6 +4,8 @@ Support for working with UKOOA P1/90 files.
 import os
 import logging
 import warnings
+import datetime
+from collections import OrderedDict
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.interpolate import interp1d
@@ -34,7 +36,7 @@ COORDINATE_IDS = {'S': 'Centre of Source',
                   'Z': 'Other, defined in H0800'}
 COORDINATE_FIELDS = [
     #(name, sql_type, default_value, is_not_null, is_primary)
-    ('point_number', 'TEXT', None, True, False),
+    ('point_number', 'INTEGER', None, True, False),
     ('record_id', 'TEXT', None, True, False),
     ('record_description', 'TEXT', None, True, False),
     ('line_name', 'TEXT', None, True, False),
@@ -44,11 +46,11 @@ COORDINATE_FIELDS = [
     ('tailbuoy_id', 'TEXT', None, False, False),
     ('latitude', 'TEXT', None, True, False),
     ('longitude', 'TEXT', None, True, False),
-    ('easting', 'TEXT', None, True, False),
-    ('northing', 'TEXT', None, True, False),
-    ('water_depth_or_elev', 'TEXT', None, True, False),
-    ('day_of_year', 'TEXT', None, True, False),
-    ('time', 'TEXT', None, True, False),
+    ('easting', 'REAL', None, True, False),
+    ('northing', 'REAL', None, True, False),
+    ('water_depth_or_elev', 'REAL', None, True, False),
+    ('day_of_year', 'INTEGER', None, True, False),
+    ('time', 'INTEGER', None, True, False),
     ('spare2', 'TEXT', None, False, False)]
 # Table for "TYPE 1, ITEM 16: RECEIVER GROUP RECORDS (3-D OFFSHORE SURVEYS)"
 RECEIVER_TABLE = 'receiver_groups'
@@ -75,6 +77,31 @@ def dist_on_line(x, y):
         xline[i] = xline[i - 1] + delt
 
     return xline
+
+def _coord2deg(lon, lat):
+    """
+    Converts p190 longitude and latidude deg, min, sec strings to
+    decimal degree floats
+    """
+    
+    # Longitude
+    # 0691719.58W
+    d, m, s, ew = float(lon[0:3]), float(lon[3:5]), float(lon[5:10]),\
+            str(lon[-1])
+    lon_deg = d + (m + s / 60.) / 60.
+    if ew == 'W':
+        lon_deg *= -1.
+
+    # Latitude
+    # 363216.85N
+    d, m, s, ns = float(lat[0:2]), float(lat[2:4]), float(lat[4:9]),\
+            str(lat[-1])
+    lat_deg = d + (m + s / 60.) / 60.
+    if ns == 'S':
+        lat_deg *= -1.
+
+    return lon_deg, lat_deg
+
 
 
 class P190EllipseError(Exception):
@@ -108,8 +135,10 @@ class P190(RockfishDatabaseConnection):
         self.COORDINATE_TABLE = COORDINATE_TABLE
         self.RECEIVER_TABLE = RECEIVER_TABLE
         self._create_tables()
-        self.filename = filename
-        self.read()
+
+        if filename: 
+            self.filename = filename
+            self.read()
 
     def read(self, filename=None):
         """
@@ -260,7 +289,7 @@ class P190(RockfishDatabaseConnection):
         :param filename: Filename to write data to. If more than one table is
             exported, files are named as
             ``<dirname>/<basename>.<table_name>.csv``.
-        :param table: Optional. List of database table names to write data
+        :param tables: Optional. List of database table names to write data
             from. Default is data from each table in the database.
         :param include_p190_header: Optional. Determines whether or not to
             include the p190 header records in a commented block at the top of
@@ -357,7 +386,8 @@ class P190(RockfishDatabaseConnection):
         Useful if the overall geometry of the streamer is OK, but indiviudal
         group locations are not.
         """
-        source_points = kwargs.pop('source_points', self.source_points)
+        source_points = kwargs.pop('source_points',
+                self.source_point_numbers)
 
         logging.info('Evenly distributing reveiver groups...')
         for source_point in source_points:
@@ -487,7 +517,7 @@ class P190(RockfishDatabaseConnection):
 
 
     # Properties
-    def _get_source_points(self):
+    def _get_source_point_numbers(self):
         """
         Returns list of unique source points
         """
@@ -495,14 +525,117 @@ class P190(RockfishDatabaseConnection):
                 .format(self.RECEIVER_TABLE)
         return [int(d[0]) for d in self.execute(sql).fetchall()]
 
-    source_points = property(fget=_get_source_points)
+    source_point_numbers = property(fget=_get_source_point_numbers)
 
-    def _get_receiver_groups(self):
+    def _get_receiver_group_number(self):
         """
         Returns list of unique receiver group numbers
         """
         sql = 'SELECT DISTINCT receiver_group_number FROM {:}'\
                 .format(self.RECEIVER_TABLE)
+        logging.debug(sql)
+
         return [int(d[0]) for d in self.execute(sql).fetchall()]
 
+    receiver_group_numbers = property(fget=_get_receiver_group_number)
+
+    def _get_coordinate_points(self, line_name=None, record_ids=['S'],
+            point_number=None):
+        """
+        Returns list of source point records
+        """
+        sql = "SELECT * FROM coordinates WHERE "
+        sql += '({:})'.format(' OR '.join(["record_id='{:}'".format(r)\
+                for r in record_ids]))
+
+        if point_number is not None:
+            sql += ' AND point_number={:}'.format(point_number)
+        
+        if line_name is not None:
+            sql += " AND line_name='{:}'".format(line_name)
+
+        logging.debug(sql)
+
+        return self.execute(sql).fetchall()
+
+    source_points = property(fget=_get_coordinate_points)
+
+    def _get_coordinate_lonlat(self, line_name=None, record_ids=['S'],
+            point_number=None, as_pandas=False, include_point_number=False):
+        """
+        Returns (lon, lat) float tuples for coordinate records
+        """
+        dat = [_coord2deg(s['longitude'], s['latitude']) for s in \
+                    self._get_coordinate_points(line_name=line_name,
+                        record_ids=record_ids, point_number=point_number)]
+
+        return dat
+
+    
+    def get_receiver_group(self, source_point, line_name=None,
+            streamer_id=None):
+        """
+        Returns receiver groups for a single source poiunt
+        """
+        sql = 'SELECT * FROM receiver_groups WHERE'
+        sql += ' source_point_number={:}'.format(source_point)
+        if line_name is not None:
+            sql += " AND line_name='{:}'".format(line_name)
+        if streamer_id is not None:
+            sql += " AND streamer_id='{:}'".format(streamer_id)
+
+        return self.execute(sql).fetchall()
+
+    def _get_receiver_groups(self, line_name=None, streamer_id=None):
+        """
+        Returns list of source point records
+        """
+        recs = OrderedDict()
+        for src in self.source_point_numbers:
+            recs[src] = self.get_receiver_group(src, line_name=line_name,
+                    streamer_id=streamer_id)
+
+        return recs
+
     receiver_groups = property(fget=_get_receiver_groups)
+
+    def _get_line_names(self):
+        """
+        Returns a list of unique line names
+        """
+        sql = 'SELECT DISTINCT(line_name) FROM receiver_groups'
+
+        return [d[0] for d in self.execute(sql).fetchall()]
+
+    line_names = property(fget=_get_line_names)
+
+    def _get_survey_date(self):
+        """
+        Returns the date of survey
+        """
+
+        sql = "SELECT value FROM headers"
+        sql += " WHERE description='DATE OF SURVEY'"
+        sql += " OR description='SURVEY DATE'"
+        
+        dat = self.execute(sql).fetchone()[0]
+        
+        y = int(dat[0:4])
+        m = int(dat[4:6])
+        d = int(dat[6:8])
+
+        return datetime.datetime(year=y, month=m, day=d)
+
+    surveydate = property(fget=_get_survey_date)
+
+    def _get_streamer_ids(self):
+        """
+        Returns list of unique streamer ids
+        """
+        sql = 'SELECT DISTINCT(streamer_id) FROM receiver_groups'
+
+        return [d['streamer_id'] for d in self.execute(sql).fetchall()]
+
+    streamer_ids = property(fget=_get_streamer_ids)
+
+

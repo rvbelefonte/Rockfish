@@ -13,7 +13,7 @@ class SEGYFFT():
         """
         if not traces:
             traces = self.traces
-        return np.fft.fft(self.traces2grid(traces))
+        return np.fft.fft(self.traces2grid(traces=traces))
 
     def fft2(self,traces=None,inplace=True):
         """

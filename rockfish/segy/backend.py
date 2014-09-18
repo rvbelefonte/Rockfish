@@ -1027,12 +1027,35 @@ class SEGYComputedTraceHeader(SEGYScaledTraceHeader):
                                      + self.minute_of_hour * 60.\
                                      + self.second_of_minute)
 
+    def _get_datetime_ms(self):
+        return datetime.datetime(self.year_data_recorded, 1, 1)\
+                + datetime.timedelta(self.day_of_year - 1,
+                                     self.hour_of_day * 60. * 60.\
+                                     + self.minute_of_hour * 60.\
+                                     + self.second_of_minute\
+                                     + self.millisecond_of_second * 1.e-3)
+
+    def _get_datetime_us(self):
+        return datetime.datetime(self.year_data_recorded, 1, 1)\
+                + datetime.timedelta(self.day_of_year - 1,
+                                     self.hour_of_day * 60. * 60.\
+                                     + self.minute_of_hour * 60.\
+                                     + self.second_of_minute\
+                                     + self.microsecond_of_second * 1.e-6)
+
+
     # Register properties
     computed_source_receiver_offset_in_m = property(
         fget=_get_source_receiver_offset)
     computed_azimuth_in_deg = property(fget=_get_forward_azimuth)
     computed_backazimuth_in_deg = property(fget=_get_back_azimuth)
-    assembled_datetime_recorded = property(fget=_get_datetime)
+
+    if 'microsecond_of_second' in TRACE_HEADER_KEYS: 
+        assembled_datetime_recorded = property(fget=_get_datetime_us)
+    elif 'millisecond_of_second' in TRACE_HEADER_KEYS: 
+        assembled_datetime_recorded = property(fget=_get_datetime_ms)
+    else:
+        assembled_datetime_recorded = property(fget=_get_datetimu)
 
 
 def readSEGY(file, endian=None, textual_header_encoding=None,

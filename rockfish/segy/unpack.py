@@ -65,6 +65,7 @@ def unpack_4byte_IBM(file, count, endian='>'):
     # http://bytes.com/topic/c/answers/
     #         221981-c-code-converting-ibm-370-floating-point-ieee-754-a
     sign = np.bitwise_and(np.right_shift(data, 31), 0x01)
+    sign = np.require(sign, 'float32')
     exponent = np.bitwise_and(np.right_shift(data, 24), 0x7f)
     mantissa = np.bitwise_and(data, 0x00ffffff)
     # Force single precision.

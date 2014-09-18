@@ -96,6 +96,7 @@ class SEGYPlotter(SEGYPlotManager):
         xgain = abs(self.get_header_value(tr.header, 'offset'))\
                 **self.OFFSET_GAIN_POWER
         amp = tr.data * float(self.GAIN) * xgain
+        print 'Maximum scaled amplitude: {:}'.format(np.max(amp))
         if(amp_max == 0):
             amp_max = 1
         return np.clip(amp/amp_max, -clip, clip)

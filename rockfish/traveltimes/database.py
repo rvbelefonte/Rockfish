@@ -72,7 +72,7 @@ DEFAULT_EPSG = 4326
 EPSG_SETUP_SQL = os.path.join(os.path.dirname(__file__), 'epsg-sqlite.sql')
 
 # XXX dev
-logging.basicConfig(level='DEBUG')
+#logging.basicConfig(level='DEBUG')
 
 
 sql_POINT_XYZ = lambda x, y, z, epsg:\

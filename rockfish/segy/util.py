@@ -2,6 +2,7 @@
 """
 Utility functions and classes.
 """
+import numpy as np
 from struct import unpack
 import os
 
@@ -86,8 +87,8 @@ def set_unscaled_coordinate(header, attribute, value):
 
 def get_scaled_elevation(header, attribute):
     """
-    Scale trace header elevation attributes according to header elevation scalar
-    attribute.
+    Scale trace header elevation attributes according to header elevation
+    scalar attribute.
     """
     # get scalar from the header
     scalar = interpret_scalar(
@@ -105,7 +106,7 @@ def set_unscaled_elevation(header, attribute, value):
     Unscale an elevation and set its header value.
     """
     # get scalar from the header
-    scalar = interpret_scalar(
+    scalar = 1./interpret_scalar(
         header.scalar_to_be_applied_to_all_elevations_and_depths)
     # Scale real value to integer value 
     header.__setattr__(attribute, int(value*scalar))
@@ -115,7 +116,7 @@ class SEGYUtils(object):
     """
     Utility functions for working with :class:`SEGYFile` objects.
     """
-    def traces2grid(self):
+    def traces2grid(self, traces=None):
         """
         Creates a grid of data from trace data.
 
