@@ -265,7 +265,7 @@ class P190(RockfishDatabaseConnection):
                           self.RECEIVER_TABLE, d)
             self.insert(self.RECEIVER_TABLE, **d)
 
-    def write(self, filename, output_format='p190', table=':all:'):
+    def write(self, filename, output_format='p190', table=':all:', **kwargs):
         """
         Write P1/90 navigation data.
 
@@ -274,7 +274,7 @@ class P190(RockfishDatabaseConnection):
             formats are 'p190' and 'csv'. Default is 'p190'.
         """
         if output_format is 'p190':
-            self._write_p190(filename)
+            self._write_p190(filename, **kwargs)
         elif output_format is 'csv':
             return self._write_csv(filename)
         else:
@@ -326,7 +326,7 @@ class P190(RockfishDatabaseConnection):
         return filenames
 
 
-    def _write_p190(self, filename):
+    def _write_p190(self, filename, header=True):
         """
         Write P1/90 data in the UKOOA P1/90 format.
 
@@ -379,7 +379,8 @@ class P190(RockfishDatabaseConnection):
         """
         print self._get_p190_header()
 
-    def distribute_receiver_groups(self, **kwargs): 
+    def distribute_receiver_groups(self, group_spacing='linspace',
+            near_group=636, **kwargs): 
         """
         Evenly distribute receiver groups along the streamer
         
@@ -390,17 +391,27 @@ class P190(RockfishDatabaseConnection):
                 self.source_point_numbers)
 
         logging.info('Evenly distributing reveiver groups...')
-        for source_point in source_points:
+        nshot = len(source_points)
+        for i, source_point in enumerate(source_points):
+            print 'Source Point {:}/{:}'.format(i, nshot)
+
             logging.debug('source point %s', source_point)
-            sql = 'SELECT rowid, easting, northing'
+            sql = 'SELECT rowid, receiver_group_number, easting, northing'
             sql += ' FROM {:} WHERE source_point_number={:}'\
                 .format(self.RECEIVER_TABLE, source_point)
             sql += ' ORDER BY receiver_group_number'
-            dat = np.asarray([[int(d[0]), float(d[1]), float(d[2])] for d in
+            dat = np.asarray([[int(d[0]), int(d[1]),
+                float(d[1]), float(d[2])] for d in
                               self.execute(sql).fetchall()])
 
-            xline0 = dist_on_line(dat[:, 1], dat[:, 2])
-            xline1 = np.linspace(xline0.min(), xline0.max(), dat.shape[0])
+            xline0 = dist_on_line(dat[:, 2], dat[:, 3])
+
+            if group_spacing == 'linspace':
+                xline1 = np.linspace(xline0.min(), xline0.max(), dat.shape[0])
+
+            else:
+                xline1 = (d[1] - near_group) * group_spacing
+
 
             xline2easting = interp1d(xline0, dat[:, 1])
             xline2northing = interp1d(xline0, dat[:, 2])

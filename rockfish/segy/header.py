@@ -104,7 +104,7 @@ TRACE_HEADER_FORMAT = [
     [2, 'alias_filter_slope', False, 142],
     [2, 'notch_filter_frequency', False, 144],
     [2, 'notch_filter_slope', False, 146],
-    [2, 'low_cut_frequency', False, 148],
+    [2, 'low_cut_frequenc/scratch/MGL1506/processed/mcs/cmps/y', False, 148],
     [2, 'high_cut_frequency', False, 150],
     [2, 'low_cut_slope', False, 152],
     [2, 'high_cut_slope', False, 154],
@@ -120,13 +120,12 @@ TRACE_HEADER_FORMAT = [
     [2, 'geophone_group_number_of_last_trace', False, 174],
     [2, 'gap_size', False, 176],
     [2, 'over_travel_associated_with_taper', False, 178],
-    [4, 'x_coordinate_of_ensemble_position_of_this_trace', False, 180],
-    [4, 'y_coordinate_of_ensemble_position_of_this_trace', False, 184],
+    [4, 'ensemble_coordinate_x', False, 180],
+    [4, 'ensemble_coordinate_y', False, 184],
     [4, 'inline_number', False, 188],
     [4, 'crossline_number', False, 192],
-    [4, 'shotpoint_number', False, 196],
-    [2, 'scalar_to_be_applied_to_the_shotpoint_number', False, 200],
-    [2, 'trace_value_measurement_unit', False, 202],
+    [4, 'water_bottom_time_in_s', False, 196],
+    [4, 'end_of_gather', False, 200],
     # The transduction constant is encoded with the mantissa and the power of
     # the exponent, e.g.:
     # transduction_constant =

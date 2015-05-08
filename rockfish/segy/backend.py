@@ -78,7 +78,8 @@ class SEGYFile(object):
     """
     def __init__(self, file=None, endian=None, textual_header_encoding=None,
                  unpack_headers=False, headonly=False, unpack_data=True, 
-                 scale_headers=False, computed_headers=False):
+                 scale_headers=False, computed_headers=False,
+                 print_progress=False):
         """
         Class that internally handles SEG Y files.
 
@@ -109,6 +110,9 @@ class SEGYFile(object):
         :param computed_headers: Bool. Determines whether or not to create
             computed header properties for commonly-calculated values.  
             Defaults to False.
+        :param print_progress: Bool or int. If not `False`, print select
+            header values for every `print_progress` traces during reading.
+            Default is not to print progress.
         """
         if file is None:
             self._createEmptySEGYFileObject()
@@ -136,7 +140,8 @@ class SEGYFile(object):
         self._readTraces(unpack_headers=unpack_headers, headonly=headonly,
                          unpack_data=unpack_data, 
                          scale_headers=scale_headers,
-                         computed_headers=computed_headers)
+                         computed_headers=computed_headers,
+                         print_progress=print_progress)
 
     def __str__(self):
         """
@@ -318,7 +323,7 @@ class SEGYFile(object):
 
     def _readTraces(self, unpack_headers=False, headonly=False,
                     unpack_data=True, scale_headers=False,
-                    computed_headers=False):
+                    computed_headers=False, print_progress=False):
         """
         Reads the actual traces starting at the current file pointer position
         to the end of the file.
@@ -338,8 +343,11 @@ class SEGYFile(object):
             real-valued coordinate and elevation trace-header attributes.
             Defaults to False.
         :param computed_headers: Bool. Determines whether or not to create
-            computed header properties for commonly-calculated values.  Default is
-            False.
+            computed header properties for commonly-calculated values.
+            Default is False.
+        :param print_progress: Bool or int. If not `False`, print select
+            header values for every `print_progress` traces. Default is not
+            to print progress.
         """
         self.traces = []
         # Determine the filesize once.
@@ -348,6 +356,7 @@ class SEGYFile(object):
         else:
             filesize = os.fstat(self.file.fileno())[6]
         # Big loop to read all data traces.
+        itr = -1
         while True:
             # Read and as soon as the trace header is too small abort.
             try:
@@ -358,6 +367,13 @@ class SEGYFile(object):
                                   scale_headers=scale_headers,
                                   computed_headers=computed_headers)
                 self.traces.append(trace)
+                itr += 1
+                if print_progress:
+                    if np.mod(itr, print_progress) == 0:
+                        print "Trace {:}, FFID {:}, Ensemble {:}"\
+                            .format(itr,
+                                    trace.header.original_field_record_number,
+                                    trace.header.ensemble_number)
             except SEGYTraceHeaderTooSmallError:
                 break
 
@@ -685,6 +701,18 @@ class SEGYTrace(object):
         return rms(self.data)
     rms = property(fget=_calc_rms)
 
+    def _get_time(self):
+        """
+        Returns an array of time values for this trace
+        """
+        dt_sec = self.header.sample_interval_in_ms_for_this_trace * 1e-6
+        delay_sec = self.header.delay_recording_time_in_ms * 1e-3
+        time = delay_sec + dt_sec * np.arange(self.npts)
+        return time
+
+    time = property(fget=_get_time)
+
+
 
 class SEGYTraceHeader(object):
     """
@@ -767,7 +795,7 @@ class SEGYTraceHeader(object):
             # the common way to store integer values.
             elif length == 4:
                 format = '%si' % endian
-                file.write(pack(format, getattr(self, name)))
+                file.write(pack(format, int(getattr(self, name))))
             # Just the one unassigned field.
             elif length == 8:
                 field = getattr(self, name)
@@ -872,6 +900,18 @@ class SEGYScaledTraceHeader(SEGYTraceHeader):
     def _set_unscaled_group_coordinate_y(self, value):
         return set_unscaled_coordinate(self, 'group_coordinate_y', value)
 
+    def _get_scaled_ensemble_coordinate_x(self):
+        return get_scaled_coordinate(self, 'ensemble_coordinate_x')
+    
+    def _set_unscaled_ensemble_coordinate_x(self, value):
+        return set_unscaled_coordinate(self, 'ensemble_coordinate_x', value)
+    
+    def _get_scaled_ensemble_coordinate_y(self):
+        return get_scaled_coordinate(self, 'ensemble_coordinate_y')
+    
+    def _set_unscaled_ensemble_coordinate_y(self, value):
+        return set_unscaled_coordinate(self, 'ensemble_coordinate_y', value)
+
     def _get_scaled_receiver_group_elevation(self):
         return get_scaled_elevation(self, 'receiver_group_elevation')
 
@@ -927,6 +967,12 @@ class SEGYScaledTraceHeader(SEGYTraceHeader):
     scaled_group_coordinate_y = property(
         fget=_get_scaled_group_coordinate_y, 
         fset=_set_unscaled_group_coordinate_y)
+    scaled_ensemble_coordinate_x = property(
+        fget=_get_scaled_ensemble_coordinate_x, 
+        fset=_set_unscaled_ensemble_coordinate_x)
+    scaled_ensemble_coordinate_y = property(
+        fget=_get_scaled_ensemble_coordinate_y, 
+        fset=_set_unscaled_ensemble_coordinate_y)
     scaled_receiver_group_elevation = property(
         fget=_get_scaled_receiver_group_elevation,
         fset=_set_unscaled_receiver_group_elevation)
@@ -1060,7 +1106,8 @@ class SEGYComputedTraceHeader(SEGYScaledTraceHeader):
 
 def readSEGY(file, endian=None, textual_header_encoding=None,
              unpack_headers=False, headonly=False, unpack_data=True,
-             scale_headers=False, computed_headers=False):
+             scale_headers=False, computed_headers=False,
+             print_progress=False):
     """
     Reads a SEG Y file and returns a SEGYFile object.
 
@@ -1090,6 +1137,9 @@ def readSEGY(file, endian=None, textual_header_encoding=None,
     :param computed_headers: Bool. Determines whether or not to create
         computed header properties for commonly-calculated values.  Default is
         False.
+    :param print_progress: Bool or int. If not `False`, print select
+            header values for every `print_progress` traces during reading.
+            Default is not to print progress.
     """
     # Open the file if it is not a file like object.
     if not hasattr(file, 'read') or not hasattr(file, 'tell') or not \

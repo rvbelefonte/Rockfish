@@ -1,6 +1,7 @@
 """
 Database methods for SEG-Y files.
 """
+import logging
 from rockfish.database.database import RockfishDatabaseConnection
 from rockfish.segy.header import TRACE_HEADER_FORMAT
 
@@ -54,8 +55,8 @@ class SEGYHeaderDatabase(RockfishDatabaseConnection):
 
         :param segy: :class:`SEGYFile` instance with ``traces[:].header``
         """
-        sql = 'DROP TABLE IF EXISTS %s' %self.TRACE_TABLE
-        self.execute(sql)
+        #sql = 'DROP TABLE IF EXISTS %s' %self.TRACE_TABLE
+        #self.execute(sql)
 
         self._create_table_if_not_exists(self.TRACE_TABLE, self.TRACE_FIELDS)
 
@@ -80,6 +81,13 @@ class SEGYHeaderDatabase(RockfishDatabaseConnection):
         :param attribute: Name of an attribute to get value for.
         """
         try:
-            return header.__getattribute__(attribute)
-        except AttributeError:
-            return header.__getattr__(attribute)
+            try:
+                return header.__getattribute__(attribute)
+            except AttributeError:
+                return header.__getattr__(attribute)
+        except ValueError as e:
+            msg = "ValueError getting attribute '{:}': {:}"\
+                    .format(attribute, e.message)
+            msg += "...setting to NULL."
+            logging.warn(msg)
+            return "NULL"

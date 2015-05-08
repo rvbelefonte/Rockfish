@@ -416,8 +416,8 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
 
         :param **kwargs: keyword=value arguments used to select picks to output
         """
-        sql = 'SELECT ensemble, trace, branch, subbranch, offset, time'
-        sql += ', error FROM {:}'.format(MASTER_VIEW)
+        sql = 'SELECT DISTINCT ensemble, trace, branch, subbranch, offset,'
+        sql += 'time, error FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
         return format_row_factory(self.execute(sql), none_value=0.0, step=step)
@@ -428,7 +428,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
 
         :param **kwargs: keyword=value arguments used to select shots to output
         """
-        sql = 'SELECT trace, source_x, source_y, source_z'
+        sql = 'SELECT DISTINCT trace, source_x, source_y, source_z'
         sql += ' FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
@@ -441,7 +441,7 @@ class PickDatabaseConnection(RockfishDatabaseConnection):
         :param **kwargs: keyword=value arguments used to select instruments
             to output.
         """
-        sql = 'SELECT ensemble, receiver_x, receiver_y, receiver_z' 
+        sql = 'SELECT DISTINCT ensemble, receiver_x, receiver_y, receiver_z' 
         sql += ' FROM {:}'.format(MASTER_VIEW)
         if len(kwargs) > 0:
             sql += " WHERE " + format_search(kwargs)
