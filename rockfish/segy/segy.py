@@ -95,24 +95,26 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
                     unpack_data=unpack_data, scale_headers=scale_headers,
                     computed_headers=computed_headers)
 
-    def copy(self, sgy, headonly=False):
+    def copy(self, headonly=False):
         """
-        Copies a ``SEGYFile`` object.
+        Returns a copy of the SEGYFile 
 
-        :param sgy: ``SEGYFile`` to copy headers and data from.
         :param headonly: If ``True``, only copies the binary and textural
             file headers, ignoring traces.
         """
+        segy = SEGYFile()
 
-        self.textual_file_header = copy.copy(sgy.textual_file_header)
-        self.binary_file_header = copy.deepcopy(sgy.binary_file_header)
-        self.endian = copy.copy(sgy.endian)
-        self.textual_header_encoding = copy.copy(sgy.textual_header_encoding)
+        segy.textual_file_header = copy.copy(self.textual_file_header)
+        segy.binary_file_header = copy.deepcopy(self.binary_file_header)
+        segy.endian = copy.copy(self.endian)
+        segy.textual_header_encoding = copy.copy(self.textual_header_encoding)
          
         if(not headonly):
-            self.traces = copy.deepcopy(sgy.traces)
+            segy.traces = copy.deepcopy(self.traces)
         else:
-            self.traces = []
+            segy.traces = []
+
+        return segy
 
     def gain(self, apply=True, type=None,
              method=None, window_size=None, window_length=None,
@@ -264,7 +266,8 @@ class SEGYFile(_SEGYFile, SEGYFilters, SEGYFFT, SEGYTimeshifts,
 
 def readSEGY(file, endian=None, textual_header_encoding=None,
              unpack_headers=False, headonly=False, unpack_data=False,
-             scale_headers=True, computed_headers=True):
+             scale_headers=True, computed_headers=True,
+             print_progress=False):
     """
     Reads a SEG Y file and returns a SEGYFile object.
 
@@ -294,6 +297,9 @@ def readSEGY(file, endian=None, textual_header_encoding=None,
     :param computed_headers: Bool. Determines whether or not to create
         computed header properties for commonly-calculated values.  
         Defaults to True.
+    :param print_progress: Bool or int. If not `False`, print select
+        header values for every `print_progress` traces during reading.
+        Default is not to print progress.
     """
     # Open the file if it is not a file like object.
     if not hasattr(file, 'read') or not hasattr(file, 'tell') or not \

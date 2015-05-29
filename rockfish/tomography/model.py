@@ -1212,7 +1212,8 @@ class VM(object):
 
     def plot(self, x=None, y=None, grid='velocity', ax=None, rf=True, ir=True,
              ij=True, show_grid=False, apply_jumps=True, colorbar=False,
-             vmin=None, vmax=None, outfile=None, xlim=None, ylim=None):
+             vmin=None, vmax=None, outfile=None, xlim=None, ylim=None,
+             aspect=1):
         """
         Plot the velocity grid and reflectors.
 
@@ -1258,7 +1259,8 @@ class VM(object):
         # Plot the slice
         vm._plot2d(grid=grid, ax=ax, rf=rf, ir=ir, ij=ij,
                    show_grid=show_grid, vmin=vmin, vmax=vmax,
-                   colorbar=colorbar, outfile=outfile, xlim=xlim, ylim=ylim)
+                   colorbar=colorbar, outfile=outfile, xlim=xlim,
+                   ylim=ylim, aspect=aspect)
         # remove the jumps
         if apply_jumps:
             vm.remove_jumps()
@@ -1892,7 +1894,8 @@ class VMTime(object):
 
         
 
-    def _plot2d(self, ax=None, grid='velocity', vmin=None, vmax=None):
+    def _plot2d(self, ax=None, grid='velocity', vmin=None, vmax=None,
+            aspect=1):
         """
         Plot the time model. 
         """
@@ -1908,7 +1911,7 @@ class VMTime(object):
 
         img = ax.imshow(grid.transpose(), vmin=vmin, vmax=vmax,
                 extent=(self._vm.r1[0], self._vm.r2[0], self.twt[0],
-                    self.twt[-1]))
+                    self.twt[-1]), aspect=aspect)
 
         if show:
             plt.show()
