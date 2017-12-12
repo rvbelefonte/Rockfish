@@ -12,7 +12,7 @@ from rockfish.tomography import readVM
 RAYTR_PROGRAM = 'slim_rays'
 
 def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
-                        shotfile='pick.dat', pickfile='shots.dat',
+                        shotfile='shot.dat', pickfile='pick.dat',
                         grid_size=None, forward_star_size=[12, 12, 24],
                         min_angle=0.5, min_velocity=1.4, max_node_size=620,
                         top_layer=0, bottom_layer=None, stdout=None,
@@ -130,6 +130,9 @@ def raytrace_from_ascii(vmfile, rayfile, instfile='inst.dat',
             raysize0 = os.path.getsize(rayfile)
         else:
             raysize0 = 0
+
+        if (verbose >=4):
+            print sh
 
         if (verbose >= 4) or (stdout is not None):
             subprocess.call(sh, shell=True, stdout=stdout,

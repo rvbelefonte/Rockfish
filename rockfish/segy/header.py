@@ -104,7 +104,7 @@ TRACE_HEADER_FORMAT = [
     [2, 'alias_filter_slope', False, 142],
     [2, 'notch_filter_frequency', False, 144],
     [2, 'notch_filter_slope', False, 146],
-    [2, 'low_cut_frequenc/scratch/MGL1506/processed/mcs/cmps/y', False, 148],
+    [2, 'low_cut_frequency', False, 148],
     [2, 'high_cut_frequency', False, 150],
     [2, 'low_cut_slope', False, 152],
     [2, 'high_cut_slope', False, 154],

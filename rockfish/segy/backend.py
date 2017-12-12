@@ -1089,12 +1089,19 @@ class SEGYComputedTraceHeader(SEGYScaledTraceHeader):
                                      + self.second_of_minute\
                                      + self.microsecond_of_second * 1.e-6)
 
+    def _get_year_second(self):
+        return self.day_of_year * 24. * 60. * 60.\
+                + self.hour_of_day * 60. * 60.\
+                + self.minute_of_hour * 60.\
+                + self.second_of_minute
+
 
     # Register properties
     computed_source_receiver_offset_in_m = property(
         fget=_get_source_receiver_offset)
     computed_azimuth_in_deg = property(fget=_get_forward_azimuth)
     computed_backazimuth_in_deg = property(fget=_get_back_azimuth)
+    computed_year_second = property(fget=_get_year_second)
 
     if 'microsecond_of_second' in TRACE_HEADER_KEYS: 
         assembled_datetime_recorded = property(fget=_get_datetime_us)
